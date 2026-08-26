@@ -1,6 +1,6 @@
 import { useTheme } from '../../hooks/useTheme'
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ inverse = false }) {
   const { dark, toggleTheme } = useTheme()
 
   return (
@@ -9,13 +9,9 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={dark ? '라이트 모드로 전환' : '다크 모드로 전환'}
       title={dark ? '라이트 모드' : '다크 모드'}
-      className="
-        grid size-9 place-items-center rounded-full
-        bg-[var(--theme-subtle)]
-        text-ink
-        transition
-        hover:bg-[var(--theme-hover)]
-      "
+      className={inverse
+        ? 'grid size-9 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15'
+        : 'grid size-9 place-items-center rounded-full bg-[var(--theme-subtle)] text-ink transition hover:bg-[var(--theme-hover)]'}
     >
       {dark ? (
         <svg

@@ -1,7 +1,9 @@
 package com.ssafy.welstory.meal;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.welstory.config.WelstoryProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -9,6 +11,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,12 +31,22 @@ public class WelstoryApiClient implements WelstoryGateway {
     private final RestClient api;
     private final RestClient images;
     private final WelstoryProperties properties;
+    private final ObjectMapper objectMapper;
     private final String deviceId = UUID.randomUUID().toString();
     private volatile String accessToken;
     private volatile Instant loginExpiresAt = Instant.EPOCH;
 
+    /**
+     * Kept for callers that construct the client outside Spring (for example, small integration tools).
+     */
     public WelstoryApiClient(RestClient.Builder builder, WelstoryProperties properties) {
+        this(builder, properties, new ObjectMapper());
+    }
+
+    @Autowired
+    public WelstoryApiClient(RestClient.Builder builder, WelstoryProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
+        this.objectMapper = objectMapper;
         this.api = builder.clone()
                 .baseUrl(properties.baseUrl())
                 .defaultHeader("User-Agent", "Welplus")
@@ -55,15 +68,17 @@ public class WelstoryApiClient implements WelstoryGateway {
     }
 
     private List<MealModels.UpstreamMeal> requestLunch(LocalDate date) {
-        JsonNode body = api.get()
+        byte[] responseBody = api.get()
                 .uri(uriBuilder -> uriBuilder.path("/api/meal")
                         .queryParam("menuDt", API_DATE.format(date))
                         .queryParam("menuMealType", properties.mealType())
                         .queryParam("restaurantCode", properties.restaurantCode())
                         .build())
                 .header("Authorization", accessToken)
+                .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM)
                 .retrieve()
-                .body(JsonNode.class);
+                .body(byte[].class);
+        JsonNode body = parseJson(responseBody);
 
         JsonNode mealList = body == null ? null : body.path("data").path("mealList");
         if (mealList == null || !mealList.isArray()) {
@@ -119,19 +134,30 @@ public class WelstoryApiClient implements WelstoryGateway {
         form.add("password", properties.password());
         form.add("remember-me", "false");
 
-        ResponseEntity<JsonNode> response = api.post()
+        ResponseEntity<byte[]> response = api.post()
                 .uri("/login")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .header("X-Autologin", "N")
                 .body(form)
                 .retrieve()
-                .toEntity(JsonNode.class);
+                .toEntity(byte[].class);
         String token = response.getHeaders().getFirst("Authorization");
         if (token == null || token.isBlank()) {
             throw new IllegalStateException("웰스토리 로그인 토큰을 받지 못했습니다.");
         }
         accessToken = token;
         loginExpiresAt = Instant.now().plus(Duration.ofMinutes(25));
+    }
+
+    private JsonNode parseJson(byte[] responseBody) {
+        if (responseBody == null || responseBody.length == 0) {
+            throw new IllegalStateException("웰스토리 식단 응답 본문이 비어 있습니다.");
+        }
+        try {
+            return objectMapper.readTree(responseBody);
+        } catch (IOException error) {
+            throw new IllegalStateException("웰스토리 식단 응답이 JSON 형식이 아닙니다.", error);
+        }
     }
 
     private static String text(JsonNode node, String field) {
@@ -145,7 +171,9 @@ public class WelstoryApiClient implements WelstoryGateway {
     }
 
     private static String calorie(JsonNode meal) {
-        String[] keys = {"calorie", "calories", "calorieTxt", "calorieInfo", "calorieValue",
+        // `kcal` is the main dish value. `sumKcal` is the course total and is what the UI should show.
+        String[] keys = {"sumKcal", "sumKcalTxt", "totalKcal", "totalKcalTxt", "totKcal",
+                "calorie", "calories", "calorieTxt", "calorieInfo", "calorieValue",
                 "kcal", "kcalTxt", "menuKcal", "menuKcalTxt", "menuCalorie", "energyKcal", "energy"};
         for (String key : keys) {
             String value = nullableText(meal, key);

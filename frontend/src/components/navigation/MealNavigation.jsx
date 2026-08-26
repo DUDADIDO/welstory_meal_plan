@@ -10,18 +10,18 @@ const arrowButton =
 export default function MealNavigation({ date, today, onChange }) {
   return (
     <>
-      <header className="border-b border-[var(--theme-border)] bg-canvas/90 backdrop-blur-2xl">
-      <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Brand />
+      <header className="border-b border-white/10 bg-[#111] text-white">
+        <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-5 sm:px-8">
+          <Brand inverse />
 
-        <div className="flex items-center gap-3">
-          <span className="hidden text-[0.68rem] font-semibold tracking-[0.12em] text-muted sm:block">
-            SAMSUNG ELECTRO-MECHANICS · BUSAN
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-[0.68rem] font-semibold tracking-[0.12em] text-white/55 sm:block">
+              SAMSUNG ELECTRO-MECHANICS · BUSAN
+            </span>
 
-          <ThemeToggle />
+            <ThemeToggle inverse />
+          </div>
         </div>
-      </div>
       </header>
       <nav
         aria-label="날짜 선택"
