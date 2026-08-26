@@ -503,7 +503,8 @@ public class MealCacheService {
                         load(date).orElse(existing);
 
                 if (
-                        existing != null
+                        !force
+                                && existing != null
                                 && existing.complete()
                 ) {
 
