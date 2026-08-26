@@ -31,7 +31,18 @@ export default function DatePicker({ date, today, onChange }) {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex h-9 w-[6.75rem] items-center justify-center gap-1.5 rounded-full bg-black/5 px-2 text-xs font-semibold transition hover:bg-black/8 sm:w-[7.25rem] sm:px-3"
+        className="
+        flex h-9 w-[6.75rem] items-center justify-center gap-1.5
+        rounded-full
+        bg-[var(--theme-subtle)]
+        px-2
+        text-xs font-semibold
+        text-ink
+        transition
+        hover:bg-[var(--theme-hover)]
+        sm:w-[7.25rem]
+        sm:px-3
+        "
       >
         <CalendarIcon className="size-4 shrink-0" />
 

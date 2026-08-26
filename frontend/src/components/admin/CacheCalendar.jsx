@@ -42,7 +42,7 @@ export default function CacheCalendar({ caches }) {
           <button
             type="button"
             onClick={() => setMonth((value) => shiftMonth(value, -1))}
-            className="grid size-8 place-items-center rounded-full text-lg text-ink transition hover:bg-black/5"
+            className="grid size-8 place-items-center rounded-full text-lg text-ink transition hover:bg-[var(--theme-hover)]"
             aria-label="이전 달"
           >
             ‹
@@ -55,7 +55,7 @@ export default function CacheCalendar({ caches }) {
           <button
             type="button"
             onClick={() => setMonth((value) => shiftMonth(value, 1))}
-            className="grid size-8 place-items-center rounded-full text-lg text-ink transition hover:bg-black/5"
+            className="grid size-8 place-items-center rounded-full text-lg text-ink transition hover:bg-[var(--theme-hover)]"
             aria-label="다음 달"
           >
             ›
@@ -80,7 +80,7 @@ export default function CacheCalendar({ caches }) {
             const cache = cacheMap[isoDate]
             const selectedDay = isoDate === selected
 
-            let stateClass = 'text-black/35 hover:bg-black/5'
+            let stateClass = 'text-muted hover:bg-[var(--theme-hover)]'
 
             if (cache?.complete) {
               stateClass =
@@ -139,7 +139,7 @@ export default function CacheCalendar({ caches }) {
       </div>
 
       {selected && (
-        <div className="mt-6 rounded-2xl bg-black/[0.025] p-5">
+        <div className="mt-6 rounded-2xl bg-[var(--theme-subtle)] p-5">
           <div className="flex items-center justify-between">
             <strong>{selected}</strong>
 

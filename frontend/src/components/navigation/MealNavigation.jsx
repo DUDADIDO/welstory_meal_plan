@@ -2,19 +2,35 @@ import Brand from '../common/Brand'
 import ChevronIcon from '../../assets/icons/ChevronIcon'
 import DatePicker from '../calendar/DatePicker'
 import { formatDate, moveDate } from '../../utils/date'
+import ThemeToggle from '../common/ThemeToggle'
 
 const arrowButton = 'grid size-9 place-items-center rounded-full border border-black/8 bg-white text-ink shadow-sm transition hover:bg-black/3 disabled:opacity-25'
 
 export default function MealNavigation({ date, today, onChange }) {
   return (
     <>
-      <header className="border-b border-black/6 bg-canvas/85 backdrop-blur-2xl">
-        <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Brand />
-          <span className="hidden text-[0.68rem] font-semibold tracking-[0.12em] text-muted sm:block">SAMSUNG ELECTRO-MECHANICS · BUSAN</span>
+      <header className="border-b border-[var(--theme-border)] bg-canvas/90 backdrop-blur-2xl">
+      <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-5 sm:px-8">
+        <Brand />
+
+        <div className="flex items-center gap-3">
+          <span className="hidden text-[0.68rem] font-semibold tracking-[0.12em] text-muted sm:block">
+            SAMSUNG ELECTRO-MECHANICS · BUSAN
+          </span>
+
+          <ThemeToggle />
         </div>
+      </div>
       </header>
-      <nav aria-label="날짜 선택" className="sticky top-0 z-30 border-b border-black/6 bg-white/82 backdrop-blur-2xl">
+      <nav
+        aria-label="날짜 선택"
+        className="
+          sticky top-0 z-30
+          border-b border-[var(--theme-border)]
+          bg-[color:var(--theme-surface)]/90
+          backdrop-blur-2xl
+        "
+      >
         <div className="mx-auto flex min-h-15 max-w-7xl items-center justify-between gap-4 px-5 py-2 sm:px-8">
           <div className="min-w-0">
             <p className="text-[0.65rem] font-bold tracking-[0.13em] text-apple-blue">점심 식단</p>

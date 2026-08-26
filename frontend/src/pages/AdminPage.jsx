@@ -48,7 +48,7 @@ export default function AdminPage() {
             <AdminMetric label="캐시 사용량" value={formatBytes(totalBytes)} />
           </section>
 
-          <section className="mt-8 overflow-hidden rounded-[1.5rem] bg-white shadow-sm ring-1 ring-black/5">
+          <section className="mt-8 overflow-hidden rounded-[1.5rem] bg-surface shadow-sm ring-1 ring-[var(--theme-border)]">
             <div className="border-b border-black/7 px-5 py-5 sm:px-6">
               <h2 className="text-lg font-bold">날짜별 캐시</h2>
               <p className="mt-1 text-xs leading-5 text-muted">{data.pollingSchedule} · 완료된 날짜는 웰스토리에 다시 요청하지 않습니다.</p>
@@ -60,7 +60,7 @@ export default function AdminPage() {
 
           <ServerLogs />
 
-          <section className="mt-8 rounded-[1.5rem] bg-white p-6 shadow-sm ring-1 ring-black/5">
+          <section className="mt-8 rounded-[1.5rem] bg-surface p-6 shadow-sm ring-1 ring-[var(--theme-border)]">
             <h2 className="text-lg font-bold">서버 설정</h2>
             <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
               <ConfigItem label="식당" value={`${data.restaurantName} · ${data.restaurantCode}`} />
@@ -76,5 +76,5 @@ export default function AdminPage() {
 }
 
 function ConfigItem({ label, value }) {
-  return <div className="rounded-xl bg-black/[0.025] px-4 py-3"><dt className="text-xs font-semibold text-muted">{label}</dt><dd className="mt-1 break-all font-medium">{value}</dd></div>
+  return <div className="rounded-xl bg-[var(--theme-subtle)] px-4 py-3"><dt className="text-xs font-semibold text-muted">{label}</dt><dd className="mt-1 break-all font-medium">{value}</dd></div>
 }

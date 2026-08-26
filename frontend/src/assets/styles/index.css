@@ -1,19 +1,91 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #fbfbfd;
-  --color-ink: #1d1d1f;
-  --color-muted: #6e6e73;
-  --color-line: #d2d2d7;
+  --color-canvas: var(--theme-canvas);
+  --color-surface: var(--theme-surface);
+  --color-soft: var(--theme-soft);
+
+  --color-ink: var(--theme-ink);
+  --color-muted: var(--theme-muted);
+  --color-line: var(--theme-line);
+
   --color-apple-blue: #0071e3;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Pretendard", "Noto Sans KR", sans-serif;
+
+  --font-sans:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Display",
+    "SF Pro Text",
+    "Pretendard",
+    "Noto Sans KR",
+    sans-serif;
+
   --shadow-apple: 0 18px 60px rgb(0 0 0 / 0.09);
 }
 
+/* Light */
+:root {
+  color-scheme: light;
+
+  --theme-canvas: #fbfbfd;
+  --theme-surface: #ffffff;
+  --theme-soft: #f2f2f4;
+
+  --theme-ink: #1d1d1f;
+  --theme-muted: #6e6e73;
+  --theme-line: #d2d2d7;
+
+  --theme-border: rgb(0 0 0 / 0.07);
+  --theme-subtle: rgb(0 0 0 / 0.04);
+  --theme-hover: rgb(0 0 0 / 0.06);
+}
+
+/* Dark */
+html.dark {
+  color-scheme: dark;
+
+  --theme-canvas: #0f0f10;
+  --theme-surface: #1c1c1e;
+  --theme-soft: #262628;
+
+  --theme-ink: #f5f5f7;
+  --theme-muted: #a1a1a6;
+  --theme-line: #3a3a3c;
+
+  --theme-border: rgb(255 255 255 / 0.10);
+  --theme-subtle: rgb(255 255 255 / 0.06);
+  --theme-hover: rgb(255 255 255 / 0.09);
+}
+
 @layer base {
-  html { scroll-behavior: smooth; }
-  body { margin: 0; min-width: 320px; background: var(--color-canvas); }
-  button, a { -webkit-tap-highlight-color: transparent; }
-  button { cursor: pointer; }
-  button:disabled { cursor: not-allowed; }
+  html {
+    scroll-behavior: smooth;
+    background: var(--theme-canvas);
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+
+    background: var(--theme-canvas);
+    color: var(--theme-ink);
+
+    transition:
+      background-color 180ms ease,
+      color 180ms ease;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
 }

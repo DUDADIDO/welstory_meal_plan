@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import ChevronIcon from '../../assets/icons/ChevronIcon'
 import { formatMonth, monthParts, moveMonth, WEEKDAYS } from '../../utils/date'
 
-const navButton = 'grid size-8 place-items-center rounded-full text-ink transition hover:bg-black/5 disabled:opacity-20'
+const navButton = 'grid size-8 place-items-center rounded-full text-ink transition hover:bg-[var(--theme-hover)] disabled:opacity-20'
 
 export default function Calendar({ date, today, onSelect }) {
   const [viewMonth, setViewMonth] = useState(date.slice(0, 7))
@@ -17,7 +17,17 @@ export default function Calendar({ date, today, onSelect }) {
   useEffect(() => setViewMonth(date.slice(0, 7)), [date])
 
   return (
-    <div role="dialog" aria-label="날짜 선택" className="absolute right-0 top-[calc(100%+0.65rem)] z-40 w-[19rem] rounded-[1.6rem] border border-black/8 bg-white p-4 text-ink shadow-apple">
+    <div role="dialog" aria-label="날짜 선택" className="
+      absolute right-0 top-[calc(100%+0.65rem)] z-40
+      w-[19rem]
+      rounded-[1.6rem]
+      border border-[var(--theme-border)]
+      bg-surface
+      p-4
+      text-ink
+      shadow-apple
+    "
+  >
       <div className="mb-3 flex items-center justify-between px-1">
         <strong className="text-[0.95rem]">{formatMonth(year, month)}</strong>
         <div className="flex gap-1">
@@ -41,7 +51,7 @@ export default function Calendar({ date, today, onSelect }) {
               aria-pressed={selected}
               aria-label={`${year}년 ${month}월 ${day}일${isToday ? ', 오늘' : ''}`}
               onClick={() => onSelect(isoDate)}
-              className={`mx-auto grid size-9 place-items-center rounded-full text-sm transition disabled:text-black/20 ${selected ? 'bg-apple-blue font-semibold text-white' : 'hover:bg-black/5'} ${isToday && !selected ? 'font-bold text-apple-blue' : ''}`}
+              className={`mx-auto grid size-9 place-items-center rounded-full text-sm transition disabled:text-black/20 ${selected ? 'bg-apple-blue font-semibold text-white' : 'hover:bg-[var(--theme-hover)]'} ${isToday && !selected ? 'font-bold text-apple-blue' : ''}`}
             >
               {day}
             </button>
