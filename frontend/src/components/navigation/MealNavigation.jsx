@@ -23,7 +23,7 @@ export default function MealNavigation({ date, today, onChange }) {
           <div className="flex shrink-0 items-center gap-2">
             <button type="button" className={arrowButton} onClick={() => onChange(moveDate(date, -1))} aria-label="이전 날짜"><ChevronIcon direction="left" /></button>
             <DatePicker date={date} today={today} onChange={onChange} />
-            <button type="button" className={arrowButton} onClick={() => onChange(moveDate(date, 1))} disabled={date === today} aria-label="다음 날짜"><ChevronIcon /></button>
+            <button type="button" className={arrowButton} onClick={() => onChange(moveDate(date, 1))} aria-label="다음 날짜"><ChevronIcon /></button>
           </div>
         </div>
       </nav>

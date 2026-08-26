@@ -1,8 +1,15 @@
 const statusStyle = {
-  READY: 'bg-emerald-50 text-emerald-700 ring-emerald-600/15',
-  WAITING: 'bg-amber-50 text-amber-700 ring-amber-600/15',
-  UNAVAILABLE: 'bg-black/4 text-muted ring-black/8',
-  ERROR: 'bg-red-50 text-red-700 ring-red-600/15',
+  READY: 'text-emerald-600',
+  WAITING: 'text-amber-600',
+  UNAVAILABLE: 'text-black/40',
+  ERROR: 'text-red-600',
+}
+
+const statusDotStyle = {
+  READY: 'bg-emerald-500',
+  WAITING: 'bg-amber-500',
+  UNAVAILABLE: 'bg-black/30',
+  ERROR: 'bg-red-500',
 }
 
 const statusLabel = {
@@ -13,5 +20,13 @@ const statusLabel = {
 }
 
 export default function StatusBadge({ status }) {
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${statusStyle[status] || statusStyle.UNAVAILABLE}`}>{statusLabel[status] || status}</span>
+  const textStyle = statusStyle[status] || statusStyle.UNAVAILABLE
+  const dotStyle = statusDotStyle[status] || statusDotStyle.UNAVAILABLE
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${textStyle}`}>
+      <span className={`size-1.5 rounded-full ${dotStyle}`} />
+      {statusLabel[status] || status}
+    </span>
+  )
 }

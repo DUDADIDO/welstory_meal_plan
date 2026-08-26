@@ -1,5 +1,5 @@
 import AdminMetric from '../components/admin/AdminMetric'
-import CacheTable from '../components/admin/CacheTable'
+import CacheCalendar from '../components/admin/CacheCalendar'
 import CacheRangeJob from '../components/admin/CacheRangeJob'
 import ServerLogs from '../components/admin/ServerLogs'
 import PrimaryButton from '../components/common/PrimaryButton'
@@ -27,7 +27,19 @@ export default function AdminPage() {
 
       {data && (
         <>
-          <section aria-label="현재 상태" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <section
+            aria-label="현재 상태"
+            className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8"
+          >
+            <AdminMetric
+              label="오늘 방문자"
+              value={`${data.visitors?.dailyVisitors || 0}명`}
+            />
+
+            <AdminMetric
+              label="이번 달 방문자"
+              value={`${data.visitors?.monthlyVisitors || 0}명`}
+            />
             <AdminMetric label="오늘 캐시" value={todayCache?.complete ? '완료' : '대기'} tone={todayCache?.complete ? 'good' : 'waiting'} />
             <AdminMetric label="실제 이미지" value={`${todayCache?.readyImageCount || 0}개`} />
             <AdminMetric label="준비 중 이미지" value={`${todayCache?.placeholderImageCount || 0}개`} tone={todayCache?.placeholderImageCount ? 'warning' : undefined} />
@@ -41,7 +53,7 @@ export default function AdminPage() {
               <h2 className="text-lg font-bold">날짜별 캐시</h2>
               <p className="mt-1 text-xs leading-5 text-muted">{data.pollingSchedule} · 완료된 날짜는 웰스토리에 다시 요청하지 않습니다.</p>
             </div>
-            <CacheTable caches={data.caches} />
+            <CacheCalendar caches={data.caches} />
           </section>
 
           <CacheRangeJob job={data.cacheJob} busy={jobBusy} onStart={startCacheJob} onCancel={cancelCacheJob} />

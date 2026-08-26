@@ -22,7 +22,7 @@ export default function Calendar({ date, today, onSelect }) {
         <strong className="text-[0.95rem]">{formatMonth(year, month)}</strong>
         <div className="flex gap-1">
           <button type="button" className={navButton} onClick={() => setViewMonth(moveMonth(viewMonth, -1))} aria-label="이전 달"><ChevronIcon direction="left" /></button>
-          <button type="button" className={navButton} onClick={() => setViewMonth(moveMonth(viewMonth, 1))} disabled={viewMonth >= today.slice(0, 7)} aria-label="다음 달"><ChevronIcon /></button>
+          <button type="button" className={navButton} onClick={() => setViewMonth(moveMonth(viewMonth, 1))} aria-label="다음 달"><ChevronIcon /></button>
         </div>
       </div>
       <div className="grid grid-cols-7 text-center text-[0.68rem] font-semibold text-muted">
@@ -38,7 +38,6 @@ export default function Calendar({ date, today, onSelect }) {
             <button
               type="button"
               key={isoDate}
-              disabled={isoDate > today}
               aria-pressed={selected}
               aria-label={`${year}년 ${month}월 ${day}일${isToday ? ', 오늘' : ''}`}
               onClick={() => onSelect(isoDate)}

@@ -59,40 +59,133 @@ public class MealCacheService {
 
     public MealModels.MealDayResponse get(LocalDate date) {
         MealModels.CachedMealDay cached = load(date).orElse(null);
-        if (cached != null && cached.complete()) {
-            return response(cached, completedStatus(cached), null);
-        }
 
         ZonedDateTime now = ZonedDateTime.now(clock);
-        if (isClosedDate(date, now.toLocalDate())) {
-            if (cached != null && !cached.meals().isEmpty()) {
-                return response(cached, MealModels.Status.WAITING, null);
+        LocalDate today = now.toLocalDate();
+
+        // 과거 날짜
+        if (date.isBefore(today)) {
+            if (cached != null) {
+                return response(
+                        cached,
+                        cached.complete()
+                                ? completedStatus(cached)
+                                : MealModels.Status.WAITING,
+                        null
+                );
             }
-            return empty(date, MealModels.Status.UNAVAILABLE, "이 날짜에는 등록된 식단이 없습니다.", null);
+
+            return empty(
+                    date,
+                    MealModels.Status.UNAVAILABLE,
+                    "이 날짜에는 저장된 식단이 없습니다.",
+                    null
+            );
         }
-        boolean needsMenu = cached == null || cached.meals().isEmpty();
-        boolean mayRefreshPhotos = isPhotoPollingWindow(now.toLocalTime());
-        if (shouldAttempt(date, now.toInstant(), now.toLocalTime()) && (needsMenu || mayRefreshPhotos)) {
+
+        // 미래 날짜
+        // 메뉴 정보만 가져오고 이미지는 받지 않는다.
+        if (date.isAfter(today)) {
+            if (cached == null || cached.meals().isEmpty()) {
+                refreshMenu(date);
+                cached = load(date).orElse(null);
+            }
+
+            if (cached == null || cached.meals().isEmpty()) {
+                return empty(
+                        date,
+                        MealModels.Status.WAITING,
+                        "아직 등록된 식단이 없습니다.",
+                        null
+                );
+            }
+
+            return response(
+                    cached,
+                    MealModels.Status.WAITING,
+                    null
+            );
+        }
+
+        // 오늘
+        if (cached != null && cached.complete()) {
+            return response(
+                    cached,
+                    completedStatus(cached),
+                    null
+            );
+        }
+
+        boolean needsMenu =
+                cached == null || cached.meals().isEmpty();
+
+        boolean mayRefreshPhotos =
+                isPhotoPollingWindow(now.toLocalTime());
+
+        if (shouldAttempt(
+                date,
+                now.toInstant(),
+                now.toLocalTime()
+        ) && (needsMenu || mayRefreshPhotos)) {
+
             refresh(date, mayRefreshPhotos);
             cached = load(date).orElse(cached);
         }
+
         if (cached != null && cached.complete()) {
-            return response(cached, completedStatus(cached), null);
+            return response(
+                    cached,
+                    completedStatus(cached),
+                    null
+            );
         }
+
         if (cached == null) {
-            Instant next = nextAttempt(date, now.toInstant(), now.toLocalTime());
+            Instant next =
+                    nextAttempt(
+                            date,
+                            now.toInstant(),
+                            now.toLocalTime()
+                    );
+
             String error = lastErrors.get(date);
+
             if (error != null) {
-                return empty(date, MealModels.Status.ERROR, error, next);
+                return empty(
+                        date,
+                        MealModels.Status.ERROR,
+                        error,
+                        next
+                );
             }
-            return empty(date, MealModels.Status.WAITING, "식단 사진이 올라오기를 기다리고 있어요.", next);
+
+            return empty(
+                    date,
+                    MealModels.Status.WAITING,
+                    "식단 사진이 올라오기를 기다리고 있어요.",
+                    next
+            );
         }
-        return response(cached, MealModels.Status.WAITING,
-                nextAttempt(date, now.toInstant(), now.toLocalTime()));
+
+        return response(
+                cached,
+                MealModels.Status.WAITING,
+                nextAttempt(
+                        date,
+                        now.toInstant(),
+                        now.toLocalTime()
+                )
+        );
     }
 
     public RefreshResult refresh(LocalDate date) {
-        return refresh(date, true);
+        ZonedDateTime now = ZonedDateTime.now(clock);
+
+        boolean downloadImages =
+                date.equals(now.toLocalDate())
+                && isPhotoPollingWindow(now.toLocalTime());
+
+        return refresh(date, downloadImages);
     }
 
     public RefreshResult refreshMenu(LocalDate date) {

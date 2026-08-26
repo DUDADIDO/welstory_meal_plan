@@ -185,35 +185,83 @@ class MealCacheServiceTest {
         assertThat(fetches).hasValue(0);
     }
 
-    @Test
+   @Test
     void menuRefreshBeforePhotoWindowDoesNotDownloadImages() {
         LocalDate date = LocalDate.of(2026, 8, 26);
         AtomicInteger downloads = new AtomicInteger();
+
         WelstoryGateway gateway = new WelstoryGateway() {
             @Override
             public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
-                return List.of(new MealModels.UpstreamMeal("한식", "메뉴", null, "https://image.test/menu.jpg"));
+                return List.of(
+                        new MealModels.UpstreamMeal(
+                                "한식",
+                                "메뉴",
+                                null,
+                                "https://image.test/menu.jpg"
+                        )
+                );
             }
 
             @Override
             public MealModels.DownloadedImage downloadImage(String url) {
                 downloads.incrementAndGet();
-                return new MealModels.DownloadedImage(imageBytes(false), "image/png");
+                return new MealModels.DownloadedImage(
+                        imageBytes(false),
+                        "image/png"
+                );
             }
         };
-        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
-                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
-        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        Clock clock = Clock.fixed(Instant.parse("2026-08-25T22:00:00Z"), ZoneId.of("Asia/Seoul"));
-        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
 
-        MealCacheService.RefreshResult menuResult = service.refreshMenu(date);
-        assertThat(downloads).hasValue(0);
-        MealCacheService.RefreshResult photoResult = service.refresh(date);
+        WelstoryProperties properties = new WelstoryProperties(
+                null,
+                "user",
+                "password",
+                null,
+                null,
+                null,
+                tempDir,
+                Duration.ofMinutes(5),
+                Duration.ofMinutes(30)
+        );
 
-        assertThat(menuResult.state()).isEqualTo(MealCacheService.RefreshState.PARTIAL);
-        assertThat(downloads).hasValue(1);
-        assertThat(photoResult.state()).isEqualTo(MealCacheService.RefreshState.COMPLETE);
+        ObjectMapper mapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule());
+
+        // 2026-08-26 07:00 KST
+        // 이미지 수집 시간(09:00~18:00) 이전
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-08-25T22:00:00Z"),
+                ZoneId.of("Asia/Seoul")
+        );
+
+        MealCacheService service = new MealCacheService(
+                gateway,
+                properties,
+                mapper,
+                new ImagePlaceholderDetector(),
+                clock
+        );
+
+        MealCacheService.RefreshResult menuResult =
+                service.refreshMenu(date);
+
+        assertThat(menuResult.state())
+                .isEqualTo(MealCacheService.RefreshState.PARTIAL);
+
+        assertThat(downloads)
+                .hasValue(0);
+
+        MealCacheService.RefreshResult refreshResult =
+                service.refresh(date);
+
+        // 07:00이므로 일반 refresh를 호출해도 이미지를 받지 않아야 함
+        assertThat(downloads)
+                .hasValue(0);
+
+        // 이미지를 받지 않았으므로 아직 캐시 완료 상태가 아님
+        assertThat(refreshResult.state())
+                .isEqualTo(MealCacheService.RefreshState.PARTIAL);
     }
 
     @Test

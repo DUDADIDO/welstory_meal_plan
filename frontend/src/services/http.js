@@ -14,6 +14,10 @@ async function request(url, options = {}) {
     }
     throw new Error(detail || `요청을 처리하지 못했습니다. (${response.status})`)
   }
+  if (response.status === 204) {
+    return null
+  }
+  
   return response.json()
 }
 
@@ -53,4 +57,13 @@ export const adminApi = {
     `/api/admin/logs?after=${after}&limit=${limit}`,
     { cache: 'no-store', credentials: 'same-origin' },
   ),
+}
+export const visitorApi = {
+  record: (clientId) => request('/api/visitors', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ clientId }),
+  }),
 }

@@ -1,5 +1,6 @@
 package com.ssafy.welstory.web;
 
+import com.ssafy.welstory.analytics.VisitorStatsService;
 import com.ssafy.welstory.config.AdminProperties;
 import com.ssafy.welstory.config.WelstoryProperties;
 import com.ssafy.welstory.logging.InMemoryLogService;
@@ -39,15 +40,17 @@ public class AdminController {
     private final AdminProperties admin;
     private final CacheRangeJobService rangeJobs;
     private final InMemoryLogService logs;
+    private final VisitorStatsService visitors;
 
     public AdminController(MealCacheService cache, RatingService ratings, WelstoryProperties welstory,
-                           AdminProperties admin, CacheRangeJobService rangeJobs, InMemoryLogService logs) {
+                           AdminProperties admin, CacheRangeJobService rangeJobs, InMemoryLogService logs, VisitorStatsService visitors) {
         this.cache = cache;
         this.ratings = ratings;
         this.welstory = welstory;
         this.admin = admin;
         this.rangeJobs = rangeJobs;
         this.logs = logs;
+        this.visitors = visitors;
     }
 
     @GetMapping("/status")
@@ -91,7 +94,7 @@ public class AdminController {
                 welstory.hasCredentials(), admin.configured(), welstory.cacheDir().toAbsolutePath().normalize().toString(),
                 "메뉴 매일 06:00부터 · 사진 매일 09:00–18:00, 5분 간격 (Asia/Seoul)",
                 welstory.retryInterval(), welstory.offHoursRetryInterval(),
-                cache.inspectCaches(), ratings.stats(), rangeJobs.progress());
+                cache.inspectCaches(), ratings.stats(), rangeJobs.progress(), visitors.stats());
     }
 
     public record AdminStatus(
@@ -106,7 +109,8 @@ public class AdminController {
             Duration offHoursRetryInterval,
             List<MealModels.CacheEntry> caches,
             RatingService.RatingStats ratings,
-            CacheRangeJobService.JobProgress cacheJob
+            CacheRangeJobService.JobProgress cacheJob,
+            VisitorStatsService.Stats visitors
     ) {}
 
     public record CacheRangeRequest(LocalDate startDate, LocalDate endDate) {}

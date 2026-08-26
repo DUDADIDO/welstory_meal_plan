@@ -9,8 +9,11 @@ import MealLightbox from '../components/meal/MealLightbox'
 import { useMeals } from '../hooks/useMeals'
 import { useRatings } from '../hooks/useRatings'
 import { formatDate, todayInSeoul } from '../utils/date'
+import StatusBadge from '../components/meal/StatusBadge'
+import { useVisitorTracking } from '../hooks/useVisitorTracking'
 
 export default function MainPage() {
+  useVisitorTracking()
   const today = useMemo(todayInSeoul, [])
   const [date, setDate] = useState(today)
   const [openMeal, setOpenMeal] = useState(null)
@@ -27,9 +30,17 @@ export default function MainPage() {
         {status === 'loading' && <LoadingGrid />}
         {hasMeals && (
           <section aria-label={`${formatDate(date)} 식단`} className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
-            <div className="mb-5 flex items-end justify-between">
-              <p className="text-xs font-bold tracking-[0.14em] text-muted">오늘의 선택</p>
-              <p className="text-xs text-muted">{data.meals.length}가지 메뉴</p>
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <p className="text-xs font-bold tracking-[0.14em] text-muted">
+                오늘의 선택
+              </p>
+
+              <div className="flex items-center gap-2">
+                <StatusBadge status={data.status} />
+                <span className="text-xs text-muted">
+                  · {data.meals.length}가지 메뉴
+                </span>
+              </div>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {data.meals.map((meal, index) => (
