@@ -60,8 +60,9 @@ public class AdminController {
 
     @PostMapping("/refresh")
     public ResponseEntity<AdminStatus> refresh(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        cache.refresh(date == null ? LocalDate.now(SEOUL) : date);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(defaultValue = "false") boolean force) {
+        cache.refresh(date == null ? LocalDate.now(SEOUL) : date, force);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(snapshot());
     }
 
@@ -69,7 +70,7 @@ public class AdminController {
     public ResponseEntity<CacheRangeJobService.JobProgress> startCacheJob(@RequestBody CacheRangeRequest request) {
         try {
             return ResponseEntity.status(ACCEPTED).cacheControl(CacheControl.noStore())
-                    .body(rangeJobs.start(request.startDate(), request.endDate()));
+                    .body(rangeJobs.start(request.startDate(), request.endDate(), request.forceExisting()));
         } catch (IllegalStateException error) {
             throw new ResponseStatusException(CONFLICT, error.getMessage(), error);
         } catch (IllegalArgumentException error) {
@@ -113,5 +114,5 @@ public class AdminController {
             VisitorStatsService.Stats visitors
     ) {}
 
-    public record CacheRangeRequest(LocalDate startDate, LocalDate endDate) {}
+    public record CacheRangeRequest(LocalDate startDate, LocalDate endDate, boolean forceExisting) {}
 }

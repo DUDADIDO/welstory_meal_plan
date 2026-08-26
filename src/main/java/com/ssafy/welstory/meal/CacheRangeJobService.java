@@ -49,7 +49,8 @@ public class CacheRangeJobService {
 
     public synchronized JobProgress start(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            boolean forceExisting
     ) {
 
         validateRange(
@@ -102,7 +103,8 @@ public class CacheRangeJobService {
                                 current.id(),
                                 startDate,
                                 endDate,
-                                total
+                                total,
+                                forceExisting
                         )
         );
 
@@ -130,7 +132,8 @@ public class CacheRangeJobService {
             String jobId,
             LocalDate startDate,
             LocalDate endDate,
-            int total
+            int total,
+            boolean forceExisting
     ) {
 
         int processed = 0;
@@ -194,7 +197,7 @@ public class CacheRangeJobService {
                  * 이미지까지 전부 다운로드해야 한다.
                  */
                 MealCacheService.RefreshResult result =
-                        cache.refreshWithImages(date);
+                        cache.refreshWithImages(date, forceExisting);
 
                 boolean upstreamCalled =
                         result.upstreamCalled();

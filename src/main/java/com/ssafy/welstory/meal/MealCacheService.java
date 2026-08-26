@@ -344,6 +344,14 @@ public class MealCacheService {
      * 이미지도 함께 다운로드한다.
      */
     public RefreshResult refresh(LocalDate date) {
+        return refresh(date, false);
+    }
+
+    /**
+     * 관리자용 강제 갱신. 기존 완료 캐시도 원격에서 다시 읽어
+     * 새로 추가된 필드(예: 칼로리)를 보강할 때 사용한다.
+     */
+    public RefreshResult refresh(LocalDate date, boolean force) {
 
         ZonedDateTime now =
                 ZonedDateTime.now(clock);
@@ -356,7 +364,8 @@ public class MealCacheService {
 
         return refresh(
                 date,
-                downloadImages
+                downloadImages,
+                force
         );
     }
 
@@ -371,7 +380,20 @@ public class MealCacheService {
 
         return refresh(
                 date,
-                true
+                true,
+                false
+        );
+    }
+
+    public RefreshResult refreshWithImages(
+            LocalDate date,
+            boolean force
+    ) {
+
+        return refresh(
+                date,
+                true,
+                force
         );
     }
 
@@ -386,6 +408,7 @@ public class MealCacheService {
 
         return refresh(
                 date,
+                false,
                 false
         );
     }
@@ -421,7 +444,8 @@ public class MealCacheService {
 
         return refresh(
                 date,
-                true
+                true,
+                false
         );
     }
 
@@ -430,7 +454,8 @@ public class MealCacheService {
      */
     private RefreshResult refresh(
             LocalDate date,
-            boolean downloadImages
+            boolean downloadImages,
+            boolean force
     ) {
 
         ReentrantLock lock =
@@ -458,7 +483,8 @@ public class MealCacheService {
              * 이미 완료 캐시면 외부 API를 다시 호출하지 않는다.
              */
             if (
-                    existing != null
+                    !force
+                            && existing != null
                             && existing.complete()
             ) {
 

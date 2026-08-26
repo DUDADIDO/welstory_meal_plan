@@ -82,8 +82,8 @@ Vite 개발 서버는 `/api` 요청을 `localhost:8080`으로 프록시합니다
 - `GET /api/ratings?date=YYYY-MM-DD&clientId=...` — 날짜별 별점 조회
 - `POST /api/ratings` — 식단 별점 저장
 - `GET /api/admin/status` — 캐시·수집·별점 운영 상태(인증 필요)
-- `POST /api/admin/refresh` — 오늘 식단 즉시 재확인(인증 필요)
-- `POST /api/admin/cache-jobs` — 날짜 범위 순차 캐시 작업 시작(인증 필요)
+- `POST /api/admin/refresh?date=YYYY-MM-DD&force=true` — 지정 날짜 식단 강제 재확인(기존 완료 캐시의 칼로리 보강 등에 사용, 인증 필요)
+- `POST /api/admin/cache-jobs` — 날짜 범위 순차 캐시 작업 시작(본문에 `forceExisting:true`를 넣으면 완료 캐시도 재확인, 인증 필요)
 - `DELETE /api/admin/cache-jobs/current` — 실행 중인 범위 작업 취소(인증 필요)
 - `GET /api/admin/logs` — 최근 서버 로그 조회(인증 필요)
 - `GET /actuator/health` — 컨테이너 상태

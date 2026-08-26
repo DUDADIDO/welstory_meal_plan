@@ -43,11 +43,11 @@ export const adminApi = {
     method: 'POST',
     credentials: 'same-origin',
   }),
-  startCacheJob: (startDate, endDate) => request('/api/admin/cache-jobs', {
+  startCacheJob: (startDate, endDate, forceExisting = false) => request('/api/admin/cache-jobs', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ startDate, endDate }),
+    body: JSON.stringify({ startDate, endDate, forceExisting }),
   }),
   cancelCacheJob: () => request('/api/admin/cache-jobs/current', {
     method: 'DELETE',

@@ -33,8 +33,8 @@ public class MealCacheStore {
     public void save(MealModels.CachedMealDay day) {
         try {
             String mealsJson = objectMapper.writeValueAsString(day.meals());
-            repository.save(new MealDayEntity(day.date(), day.restaurantName(), day.complete(), mealsJson,
-                    day.message(), day.lastUpdatedAt()));
+            repository.upsert(day.date(), day.restaurantName(), day.complete(), mealsJson,
+                    day.message(), day.lastUpdatedAt());
         } catch (IOException error) {
             throw new IllegalStateException("식단 캐시를 DB에 저장하지 못했습니다.", error);
         }

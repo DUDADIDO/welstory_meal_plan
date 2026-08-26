@@ -34,10 +34,10 @@ export function useAdminStatus() {
     }
   }, [])
 
-  const startCacheJob = useCallback(async (startDate, endDate) => {
+  const startCacheJob = useCallback(async (startDate, endDate, forceExisting = false) => {
     setJobBusy(true)
     try {
-      const cacheJob = await adminApi.startCacheJob(startDate, endDate)
+      const cacheJob = await adminApi.startCacheJob(startDate, endDate, forceExisting)
       setData((previous) => previous ? { ...previous, cacheJob } : previous)
       setError(null)
     } catch (jobError) {
