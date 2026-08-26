@@ -50,7 +50,7 @@ class MealCacheServiceTest {
         assertThat(first.status()).isEqualTo(MealModels.Status.READY);
         assertThat(second.status()).isEqualTo(MealModels.Status.READY);
         assertThat(fetches).hasValue(1);
-        assertThat(second.meals().getFirst().imageUrl()).isEqualTo("/api/meals/2026-08-26/images/meal-01");
+        assertThat(second.meals().getFirst().imageUrl()).startsWith("/api/meals/2026-08-26/images/meal-01?v=");
         assertThat(service.image(date, "meal-01")).isPresent();
     }
 
@@ -114,6 +114,47 @@ class MealCacheServiceTest {
         assertThat(entry.complete()).isFalse();
         assertThat(entry.placeholderImageCount()).isEqualTo(2);
         assertThat(entry.readyImageCount()).isZero();
+    }
+
+    @Test
+    void readyImageIsExposedWhileOtherMealsAreStillPreparing() {
+        LocalDate date = LocalDate.of(2026, 8, 26);
+        byte[] actual = imageBytes(false);
+        byte[] preparing = imageBytes(true);
+        WelstoryGateway gateway = new WelstoryGateway() {
+            @Override
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
+                return List.of(
+                        new MealModels.UpstreamMeal("한식", "완료 메뉴", null, "https://image.test/actual.jpg"),
+                        new MealModels.UpstreamMeal("일품", "준비 메뉴 1", null, "https://image.test/preparing-1.jpg"),
+                        new MealModels.UpstreamMeal("일품", "준비 메뉴 2", null, "https://image.test/preparing-2.jpg"));
+            }
+
+            @Override
+            public MealModels.DownloadedImage downloadImage(String url) {
+                return new MealModels.DownloadedImage(url.contains("actual") ? actual : preparing, "image/png");
+            }
+        };
+        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30), Set.of());
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Clock clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+
+        MealModels.MealDayResponse response = service.get(date);
+        MealModels.CacheEntry entry = service.inspectCaches().getFirst();
+
+        assertThat(response.status()).isEqualTo(MealModels.Status.WAITING);
+        assertThat(response.meals()).extracting(MealModels.MealItem::imageUrl)
+                .satisfiesExactly(
+                        imageUrl -> assertThat(imageUrl).startsWith("/api/meals/2026-08-26/images/meal-01?v="),
+                        imageUrl -> assertThat(imageUrl).isNull(),
+                        imageUrl -> assertThat(imageUrl).isNull());
+        assertThat(service.image(date, "meal-01")).isPresent();
+        assertThat(service.image(date, "meal-02")).isEmpty();
+        assertThat(entry.readyImageCount()).isEqualTo(1);
+        assertThat(entry.placeholderImageCount()).isEqualTo(2);
+        assertThat(entry.complete()).isFalse();
     }
 
     private static byte[] imageBytes(boolean placeholder) {

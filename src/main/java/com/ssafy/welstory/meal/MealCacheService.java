@@ -114,7 +114,6 @@ public class MealCacheService {
 
     public Optional<ImageAsset> image(LocalDate date, String mealId) {
         return load(date)
-                .filter(MealModels.CachedMealDay::complete)
                 .flatMap(day -> day.meals().stream().filter(meal -> meal.id().equals(mealId)).findFirst())
                 .filter(MealModels.CachedMeal::hasCachedImage)
                 .map(meal -> new ImageAsset(dateDir(date).resolve(meal.imageFile()).normalize(), meal.imageContentType()))
@@ -253,8 +252,9 @@ public class MealCacheService {
                                                 Instant nextCheckAt) {
         List<MealModels.MealItem> meals = cached.meals().stream()
                 .map(meal -> new MealModels.MealItem(meal.id(), meal.courseName(), meal.name(), meal.description(),
-                        cached.complete() && meal.hasCachedImage()
-                                ? "/api/meals/%s/images/%s".formatted(cached.date(), meal.id()) : null))
+                        meal.hasCachedImage()
+                                ? "/api/meals/%s/images/%s?v=%s".formatted(
+                                        cached.date(), meal.id(), meal.imageHash()) : null))
                 .toList();
         return new MealModels.MealDayResponse(cached.date(), cached.restaurantName(), status, meals,
                 cached.message(), cached.lastUpdatedAt(), nextCheckAt);
