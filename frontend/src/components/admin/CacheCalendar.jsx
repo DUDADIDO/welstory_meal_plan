@@ -37,102 +37,105 @@ export default function CacheCalendar({ caches }) {
 
   return (
     <div className="p-5 sm:p-6">
-      <div className="mb-5 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setMonth((value) => shiftMonth(value, -1))}
-          className="grid size-9 place-items-center rounded-full hover:bg-black/5"
-        >
-          ‹
-        </button>
-
-        <strong className="text-base">
-          {year}년 {monthNumber}월
-        </strong>
-
-        <button
-          type="button"
-          onClick={() => setMonth((value) => shiftMonth(value, 1))}
-          className="grid size-9 place-items-center rounded-full hover:bg-black/5"
-        >
-          ›
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 text-center">
-        {WEEKDAYS.map((day) => (
-          <div
-            key={day}
-            className="py-2 text-xs font-semibold text-muted"
+      <div className="mx-auto max-w-[22rem]">
+        <div className="mb-4 flex items-center justify-between px-1">
+          <button
+            type="button"
+            onClick={() => setMonth((value) => shiftMonth(value, -1))}
+            className="grid size-8 place-items-center rounded-full text-lg text-ink transition hover:bg-black/5"
+            aria-label="이전 달"
           >
-            {day}
-          </div>
-        ))}
+            ‹
+          </button>
 
-        {cells.map((day, index) => {
-          if (!day) {
-            return <div key={`blank-${index}`} />
-          }
+          <strong className="text-[0.95rem]">
+            {year}년 {monthNumber}월
+          </strong>
 
-          const isoDate =
-            `${month}-${String(day).padStart(2, '0')}`
+          <button
+            type="button"
+            onClick={() => setMonth((value) => shiftMonth(value, 1))}
+            className="grid size-8 place-items-center rounded-full text-lg text-ink transition hover:bg-black/5"
+            aria-label="다음 달"
+          >
+            ›
+          </button>
+        </div>
 
-          const cache = cacheMap[isoDate]
+        <div className="grid grid-cols-7 text-center text-[0.68rem] font-semibold text-muted">
+          {WEEKDAYS.map((day) => (
+            <span key={day} className="py-2">
+              {day}
+            </span>
+          ))}
+        </div>
 
-          let stateClass = 'bg-black/[0.03] text-black/35'
+        <div className="grid grid-cols-7 gap-y-1">
+          {cells.map((day, index) => {
+            if (!day) {
+              return <span key={`blank-${index}`} />
+            }
 
-          if (cache?.complete) {
-            stateClass =
-              'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15'
-          } else if (cache) {
-            stateClass =
-              'bg-amber-50 text-amber-700 ring-1 ring-amber-600/15'
-          }
+            const isoDate = `${month}-${String(day).padStart(2, '0')}`
+            const cache = cacheMap[isoDate]
+            const selectedDay = isoDate === selected
 
-          return (
-            <button
-              key={isoDate}
-              type="button"
-              onClick={() => setSelected(isoDate)}
-              className="group p-1"
-            >
-              <div
-                className={`flex aspect-square min-h-11 flex-col items-center justify-center rounded-xl transition hover:scale-[1.03] ${stateClass}`}
+            let stateClass = 'text-black/35 hover:bg-black/5'
+
+            if (cache?.complete) {
+              stateClass =
+                'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15 hover:bg-emerald-100'
+            } else if (cache) {
+              stateClass =
+                'bg-amber-50 text-amber-700 ring-1 ring-amber-600/15 hover:bg-amber-100'
+            }
+
+            if (selectedDay) {
+              stateClass =
+                'bg-apple-blue text-white ring-0 hover:bg-apple-blue'
+            }
+
+            return (
+              <button
+                key={isoDate}
+                type="button"
+                onClick={() => setSelected(isoDate)}
+                aria-pressed={selectedDay}
+                aria-label={`${year}년 ${monthNumber}월 ${day}일`}
+                className={`mx-auto flex size-9 flex-col items-center justify-center rounded-full text-xs font-semibold transition ${stateClass}`}
               >
-                <span className="text-sm font-semibold">
-                  {day}
-                </span>
+                <span>{day}</span>
 
-                {cache && (
+                {cache && !selectedDay && (
                   <span
-                    className={`mt-1 size-1.5 rounded-full ${
+                    className={`mt-0.5 size-1 rounded-full ${
                       cache.complete
                         ? 'bg-emerald-500'
                         : 'bg-amber-500'
                     }`}
                   />
                 )}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+              </button>
+            )
+          })}
+        </div>
 
-      <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted">
-        <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-emerald-500" />
-          캐시 완료
-        </span>
+        <div className="mt-4 flex flex-wrap justify-center gap-4 text-[0.68rem] text-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-emerald-500" />
+            캐시 완료
+          </span>
 
-        <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-amber-500" />
-          확인 필요
-        </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-amber-500" />
+            확인 필요
+          </span>
 
-        <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-black/15" />
-          캐시 없음
-        </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-black/15" />
+            캐시 없음
+          </span>
+        </div>
       </div>
 
       {selected && (
@@ -204,6 +207,7 @@ function Info({ label, children }) {
       <dt className="text-xs font-semibold text-muted">
         {label}
       </dt>
+
       <dd className="mt-1 font-medium">
         {children}
       </dd>

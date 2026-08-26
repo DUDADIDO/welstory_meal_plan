@@ -26,9 +26,18 @@ export default function DatePicker({ date, today, onChange }) {
 
   return (
     <div className="relative" ref={pickerRef}>
-      <button type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((value) => !value)} className="flex h-9 items-center gap-1.5 rounded-full bg-black/5 px-3 text-xs font-semibold transition hover:bg-black/8">
-        <CalendarIcon className="size-4" />
-        <span>{date === today ? '오늘' : formatShortDate(date)}</span>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-9 w-[6.75rem] items-center justify-center gap-1.5 rounded-full bg-black/5 px-2 text-xs font-semibold transition hover:bg-black/8 sm:w-[7.25rem] sm:px-3"
+      >
+        <CalendarIcon className="size-4 shrink-0" />
+
+        <span className="min-w-0 text-center">
+          {date === today ? '오늘' : formatShortDate(date)}
+        </span>
       </button>
       {open && <Calendar date={date} today={today} onSelect={selectDate} />}
     </div>
