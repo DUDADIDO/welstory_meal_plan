@@ -5,7 +5,14 @@ async function request(url, options = {}) {
   })
 
   if (!response.ok) {
-    throw new Error(`요청을 처리하지 못했습니다. (${response.status})`)
+    let detail
+    try {
+      const errorBody = await response.json()
+      detail = errorBody.detail || errorBody.message
+    } catch {
+      detail = null
+    }
+    throw new Error(detail || `요청을 처리하지 못했습니다. (${response.status})`)
   }
   return response.json()
 }
@@ -32,4 +39,18 @@ export const adminApi = {
     method: 'POST',
     credentials: 'same-origin',
   }),
+  startCacheJob: (startDate, endDate) => request('/api/admin/cache-jobs', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ startDate, endDate }),
+  }),
+  cancelCacheJob: () => request('/api/admin/cache-jobs/current', {
+    method: 'DELETE',
+    credentials: 'same-origin',
+  }),
+  getLogs: (after = 0, limit = 200) => request(
+    `/api/admin/logs?after=${after}&limit=${limit}`,
+    { cache: 'no-store', credentials: 'same-origin' },
+  ),
 }

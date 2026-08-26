@@ -32,7 +32,6 @@ welstory:
   cache-dir: ${WELSTORY_CACHE_DIR:./data/cache}
   retry-interval: ${WELSTORY_RETRY_INTERVAL:5m}
   off-hours-retry-interval: ${WELSTORY_OFF_HOURS_RETRY_INTERVAL:30m}
-  holidays: ${WELSTORY_HOLIDAYS:}
 
 admin:
   username: ${ADMIN_USERNAME:}

@@ -9,7 +9,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,7 +20,7 @@ class RatingServiceTest {
     void oneClientCanUpdateVoteAndRatingsPersist() {
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
-                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30), Set.of());
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
         LocalDate date = LocalDate.of(2026, 8, 26);
         RatingService service = new RatingService(mapper, properties);
 

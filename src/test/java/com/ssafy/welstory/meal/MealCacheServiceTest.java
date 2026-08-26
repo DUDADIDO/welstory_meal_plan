@@ -9,7 +9,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.*;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -39,7 +38,7 @@ class MealCacheServiceTest {
             }
         };
         WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
-                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30), Set.of());
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         Clock clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
         MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
@@ -71,7 +70,7 @@ class MealCacheServiceTest {
             }
         };
         WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
-                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30), Set.of());
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         Clock clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
         MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
@@ -102,7 +101,7 @@ class MealCacheServiceTest {
             }
         };
         WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
-                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30), Set.of());
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         Clock clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
         MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
@@ -136,7 +135,7 @@ class MealCacheServiceTest {
             }
         };
         WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
-                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30), Set.of());
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         Clock clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
         MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
@@ -155,6 +154,129 @@ class MealCacheServiceTest {
         assertThat(entry.readyImageCount()).isEqualTo(1);
         assertThat(entry.placeholderImageCount()).isEqualTo(2);
         assertThat(entry.complete()).isFalse();
+    }
+
+    @Test
+    void publicRequestForUncachedPastDateDoesNotCallUpstream() {
+        LocalDate today = LocalDate.of(2026, 8, 26);
+        LocalDate pastDate = today.minusDays(1);
+        AtomicInteger fetches = new AtomicInteger();
+        WelstoryGateway gateway = new WelstoryGateway() {
+            @Override
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
+                fetches.incrementAndGet();
+                return List.of();
+            }
+
+            @Override
+            public MealModels.DownloadedImage downloadImage(String url) {
+                throw new AssertionError("과거 미캐시 날짜는 공개 요청으로 다운로드하면 안 됩니다.");
+            }
+        };
+        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Clock clock = Clock.fixed(Instant.parse("2026-08-26T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+
+        MealModels.MealDayResponse response = service.get(pastDate);
+
+        assertThat(response.status()).isEqualTo(MealModels.Status.UNAVAILABLE);
+        assertThat(fetches).hasValue(0);
+    }
+
+    @Test
+    void menuRefreshBeforePhotoWindowDoesNotDownloadImages() {
+        LocalDate date = LocalDate.of(2026, 8, 26);
+        AtomicInteger downloads = new AtomicInteger();
+        WelstoryGateway gateway = new WelstoryGateway() {
+            @Override
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
+                return List.of(new MealModels.UpstreamMeal("한식", "메뉴", null, "https://image.test/menu.jpg"));
+            }
+
+            @Override
+            public MealModels.DownloadedImage downloadImage(String url) {
+                downloads.incrementAndGet();
+                return new MealModels.DownloadedImage(imageBytes(false), "image/png");
+            }
+        };
+        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Clock clock = Clock.fixed(Instant.parse("2026-08-25T22:00:00Z"), ZoneId.of("Asia/Seoul"));
+        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+
+        MealCacheService.RefreshResult menuResult = service.refreshMenu(date);
+        assertThat(downloads).hasValue(0);
+        MealCacheService.RefreshResult photoResult = service.refresh(date);
+
+        assertThat(menuResult.state()).isEqualTo(MealCacheService.RefreshState.PARTIAL);
+        assertThat(downloads).hasValue(1);
+        assertThat(photoResult.state()).isEqualTo(MealCacheService.RefreshState.COMPLETE);
+    }
+
+    @Test
+    void emptyHistoricalResponseIsCachedAsUnavailable() {
+        LocalDate today = LocalDate.of(2026, 8, 26);
+        LocalDate pastDate = today.minusDays(1);
+        AtomicInteger fetches = new AtomicInteger();
+        WelstoryGateway gateway = new WelstoryGateway() {
+            @Override
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
+                fetches.incrementAndGet();
+                return List.of();
+            }
+
+            @Override
+            public MealModels.DownloadedImage downloadImage(String url) {
+                throw new AssertionError("빈 식단은 이미지를 다운로드하면 안 됩니다.");
+            }
+        };
+        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Clock clock = Clock.fixed(Instant.parse("2026-08-26T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+
+        MealCacheService.RefreshResult first = service.refresh(pastDate);
+        MealModels.MealDayResponse response = service.get(pastDate);
+        MealCacheService.RefreshResult second = service.refresh(pastDate);
+
+        assertThat(first.state()).isEqualTo(MealCacheService.RefreshState.COMPLETE);
+        assertThat(response.status()).isEqualTo(MealModels.Status.UNAVAILABLE);
+        assertThat(response.message()).isEqualTo("해당 날짜에는 등록된 식단이 없습니다.");
+        assertThat(second.state()).isEqualTo(MealCacheService.RefreshState.ALREADY_COMPLETE);
+        assertThat(fetches).hasValue(1);
+    }
+
+    @Test
+    void weekendTodayIsFetchedInsteadOfBeingPreemptivelySkipped() {
+        LocalDate sunday = LocalDate.of(2026, 8, 30);
+        AtomicInteger fetches = new AtomicInteger();
+        WelstoryGateway gateway = new WelstoryGateway() {
+            @Override
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
+                fetches.incrementAndGet();
+                return List.of(new MealModels.UpstreamMeal("주말식", "주말 메뉴", null, "https://image.test/menu.jpg"));
+            }
+
+            @Override
+            public MealModels.DownloadedImage downloadImage(String url) {
+                return new MealModels.DownloadedImage(imageBytes(false), "image/png");
+            }
+        };
+        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Clock clock = Clock.fixed(Instant.parse("2026-08-30T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+
+        MealModels.MealDayResponse response = service.get(sunday);
+
+        assertThat(response.status()).isEqualTo(MealModels.Status.READY);
+        assertThat(response.meals()).hasSize(1);
+        assertThat(fetches).hasValue(1);
     }
 
     private static byte[] imageBytes(boolean placeholder) {

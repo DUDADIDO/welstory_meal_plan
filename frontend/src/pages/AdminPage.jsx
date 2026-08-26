@@ -1,12 +1,14 @@
 import AdminMetric from '../components/admin/AdminMetric'
 import CacheTable from '../components/admin/CacheTable'
+import CacheRangeJob from '../components/admin/CacheRangeJob'
+import ServerLogs from '../components/admin/ServerLogs'
 import PrimaryButton from '../components/common/PrimaryButton'
 import { useAdminStatus } from '../hooks/useAdminStatus'
 import { todayInSeoul } from '../utils/date'
 import { formatBytes } from '../utils/format'
 
 export default function AdminPage() {
-  const { data, error, refreshing, refreshToday } = useAdminStatus()
+  const { data, error, refreshing, jobBusy, refreshToday, startCacheJob, cancelCacheJob } = useAdminStatus()
   const todayCache = data?.caches?.find((cache) => cache.date === todayInSeoul())
   const totalBytes = data ? data.caches.reduce((sum, cache) => sum + cache.diskBytes, data.ratings.diskBytes) : 0
 
@@ -41,6 +43,10 @@ export default function AdminPage() {
             </div>
             <CacheTable caches={data.caches} />
           </section>
+
+          <CacheRangeJob job={data.cacheJob} busy={jobBusy} onStart={startCacheJob} onCancel={cancelCacheJob} />
+
+          <ServerLogs />
 
           <section className="mt-8 rounded-[1.5rem] bg-white p-6 shadow-sm ring-1 ring-black/5">
             <h2 className="text-lg font-bold">서버 설정</h2>

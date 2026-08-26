@@ -1,10 +1,8 @@
 package com.ssafy.welstory.meal;
 
-import com.ssafy.welstory.config.WelstoryProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -13,26 +11,22 @@ import java.time.ZoneId;
 public class MealRefreshScheduler {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final MealCacheService cache;
-    private final WelstoryProperties properties;
 
-    public MealRefreshScheduler(MealCacheService cache, WelstoryProperties properties) {
+    public MealRefreshScheduler(MealCacheService cache) {
         this.cache = cache;
-        this.properties = properties;
     }
 
-    @Scheduled(cron = "0 */5 6-10 * * MON-FRI", zone = "Asia/Seoul")
-    public void pollMorning() {
-        if (!LocalTime.now(SEOUL).isAfter(LocalTime.of(10, 40))) {
-            refreshTodayIfWorkingDay();
-        }
-    }
-
-    private void refreshTodayIfWorkingDay() {
+    @Scheduled(cron = "0 */5 6-8 * * *", zone = "Asia/Seoul")
+    public void ensureTodayMenu() {
         LocalDate today = LocalDate.now(SEOUL);
-        if (today.getDayOfWeek() != DayOfWeek.SATURDAY
-                && today.getDayOfWeek() != DayOfWeek.SUNDAY
-                && !properties.holidays().contains(today)) {
-            cache.refresh(today);
+        if (!cache.hasMealData(today)) {
+            cache.refreshMenu(today);
         }
+    }
+
+    @Scheduled(cron = "0 */5 9-18 * * *", zone = "Asia/Seoul")
+    public void pollTodayPhotos() {
+        if (LocalTime.now(SEOUL).isAfter(LocalTime.of(18, 0))) return;
+        cache.refreshPhotosIfDue(LocalDate.now(SEOUL));
     }
 }

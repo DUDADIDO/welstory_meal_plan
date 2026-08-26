@@ -5,6 +5,7 @@ export function useAdminStatus() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [jobBusy, setJobBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -17,7 +18,7 @@ export function useAdminStatus() {
 
   useEffect(() => {
     load()
-    const timer = window.setInterval(load, 30_000)
+    const timer = window.setInterval(load, 3_000)
     return () => window.clearInterval(timer)
   }, [load])
 
@@ -33,5 +34,32 @@ export function useAdminStatus() {
     }
   }, [])
 
-  return { data, error, refreshing, refreshToday }
+  const startCacheJob = useCallback(async (startDate, endDate) => {
+    setJobBusy(true)
+    try {
+      const cacheJob = await adminApi.startCacheJob(startDate, endDate)
+      setData((previous) => previous ? { ...previous, cacheJob } : previous)
+      setError(null)
+    } catch (jobError) {
+      setError(jobError)
+      throw jobError
+    } finally {
+      setJobBusy(false)
+    }
+  }, [])
+
+  const cancelCacheJob = useCallback(async () => {
+    setJobBusy(true)
+    try {
+      const cacheJob = await adminApi.cancelCacheJob()
+      setData((previous) => previous ? { ...previous, cacheJob } : previous)
+      setError(null)
+    } catch (jobError) {
+      setError(jobError)
+    } finally {
+      setJobBusy(false)
+    }
+  }, [])
+
+  return { data, error, refreshing, jobBusy, refreshToday, startCacheJob, cancelCacheJob }
 }

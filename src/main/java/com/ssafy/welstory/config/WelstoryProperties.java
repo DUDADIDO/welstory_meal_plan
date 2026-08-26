@@ -4,8 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.util.Set;
 
 @ConfigurationProperties(prefix = "welstory")
 public record WelstoryProperties(
@@ -17,8 +15,7 @@ public record WelstoryProperties(
         String mealType,
         Path cacheDir,
         Duration retryInterval,
-        Duration offHoursRetryInterval,
-        Set<LocalDate> holidays
+        Duration offHoursRetryInterval
 ) {
     public WelstoryProperties {
         baseUrl = defaultIfBlank(baseUrl, "https://welplus.welstory.com");
@@ -28,7 +25,6 @@ public record WelstoryProperties(
         cacheDir = cacheDir == null ? Path.of("./data/cache") : cacheDir;
         retryInterval = retryInterval == null ? Duration.ofMinutes(5) : retryInterval;
         offHoursRetryInterval = offHoursRetryInterval == null ? Duration.ofMinutes(30) : offHoursRetryInterval;
-        holidays = holidays == null ? Set.of() : Set.copyOf(holidays);
     }
 
     public boolean hasCredentials() {

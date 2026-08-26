@@ -27,8 +27,9 @@ import java.util.concurrent.locks.ReentrantLock;
 public class MealCacheService {
     private static final Logger log = LoggerFactory.getLogger(MealCacheService.class);
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
-    private static final LocalTime POLL_START = LocalTime.of(6, 0);
-    private static final LocalTime POLL_END = LocalTime.of(10, 40);
+    private static final LocalTime ACTIVE_START = LocalTime.of(6, 0);
+    private static final LocalTime PHOTO_POLL_START = LocalTime.of(9, 0);
+    private static final LocalTime PHOTO_POLL_END = LocalTime.of(18, 0);
 
     private final WelstoryGateway gateway;
     private final WelstoryProperties properties;
@@ -39,6 +40,7 @@ public class MealCacheService {
     private final Map<LocalDate, Instant> lastAttempts = new ConcurrentHashMap<>();
     private final Map<LocalDate, String> lastErrors = new ConcurrentHashMap<>();
     private final Map<LocalDate, ReentrantLock> locks = new ConcurrentHashMap<>();
+    private final ReentrantLock upstreamLock = new ReentrantLock();
 
     @Autowired
     public MealCacheService(WelstoryGateway gateway, WelstoryProperties properties, ObjectMapper objectMapper,
@@ -58,7 +60,7 @@ public class MealCacheService {
     public MealModels.MealDayResponse get(LocalDate date) {
         MealModels.CachedMealDay cached = load(date).orElse(null);
         if (cached != null && cached.complete()) {
-            return response(cached, MealModels.Status.READY, null);
+            return response(cached, completedStatus(cached), null);
         }
 
         ZonedDateTime now = ZonedDateTime.now(clock);
@@ -68,12 +70,14 @@ public class MealCacheService {
             }
             return empty(date, MealModels.Status.UNAVAILABLE, "이 날짜에는 등록된 식단이 없습니다.", null);
         }
-        if (shouldAttempt(date, now.toInstant(), now.toLocalTime())) {
-            refresh(date);
+        boolean needsMenu = cached == null || cached.meals().isEmpty();
+        boolean mayRefreshPhotos = isPhotoPollingWindow(now.toLocalTime());
+        if (shouldAttempt(date, now.toInstant(), now.toLocalTime()) && (needsMenu || mayRefreshPhotos)) {
+            refresh(date, mayRefreshPhotos);
             cached = load(date).orElse(cached);
         }
         if (cached != null && cached.complete()) {
-            return response(cached, MealModels.Status.READY, null);
+            return response(cached, completedStatus(cached), null);
         }
         if (cached == null) {
             Instant next = nextAttempt(date, now.toInstant(), now.toLocalTime());
@@ -87,26 +91,56 @@ public class MealCacheService {
                 nextAttempt(date, now.toInstant(), now.toLocalTime()));
     }
 
-    public void refresh(LocalDate date) {
+    public RefreshResult refresh(LocalDate date) {
+        return refresh(date, true);
+    }
+
+    public RefreshResult refreshMenu(LocalDate date) {
+        return refresh(date, false);
+    }
+
+    public RefreshResult refreshPhotosIfDue(LocalDate date) {
+        Instant lastAttempt = lastAttempts.get(date);
+        Instant now = Instant.now(clock);
+        if (lastAttempt != null && now.isBefore(lastAttempt.plus(properties.retryInterval()))) {
+            return new RefreshResult(RefreshState.THROTTLED, false, "다음 사진 확인 시간을 기다리고 있습니다.");
+        }
+        return refresh(date, true);
+    }
+
+    private RefreshResult refresh(LocalDate date, boolean downloadImages) {
         ReentrantLock lock = locks.computeIfAbsent(date, ignored -> new ReentrantLock());
         if (!lock.tryLock()) {
-            return;
+            return new RefreshResult(RefreshState.BUSY, false, "같은 날짜를 이미 확인하고 있습니다.");
         }
         try {
             MealModels.CachedMealDay existing = load(date).orElse(null);
             if (existing != null && existing.complete()) {
-                return;
+                return new RefreshResult(RefreshState.ALREADY_COMPLETE, false, "이미 캐시가 완료된 날짜입니다.");
             }
-            lastAttempts.put(date, Instant.now(clock));
-            List<MealModels.UpstreamMeal> upstream = gateway.fetchLunch(date);
-            MealModels.CachedMealDay updated = cacheMeals(date, upstream, existing);
-            memory.put(date, updated);
-            persist(updated);
-            lastErrors.remove(date);
-            log.info("Meal cache refreshed: date={}, meals={}, complete={}", date, updated.meals().size(), updated.complete());
+            upstreamLock.lock();
+            try {
+                existing = load(date).orElse(existing);
+                if (existing != null && existing.complete()) {
+                    return new RefreshResult(RefreshState.ALREADY_COMPLETE, false, "이미 캐시가 완료된 날짜입니다.");
+                }
+                lastAttempts.put(date, Instant.now(clock));
+                List<MealModels.UpstreamMeal> upstream = gateway.fetchLunch(date);
+                MealModels.CachedMealDay updated = cacheMeals(date, upstream, existing, downloadImages);
+                memory.put(date, updated);
+                persist(updated);
+                lastErrors.remove(date);
+                log.info("Meal cache refreshed: date={}, meals={}, images={}, complete={}",
+                        date, updated.meals().size(), downloadImages, updated.complete());
+                return new RefreshResult(updated.complete() ? RefreshState.COMPLETE : RefreshState.PARTIAL,
+                        true, updated.message());
+            } finally {
+                upstreamLock.unlock();
+            }
         } catch (Exception error) {
             lastErrors.put(date, safeErrorMessage(error));
             log.warn("Meal refresh failed for {}: {}", date, error.getMessage());
+            return new RefreshResult(RefreshState.FAILED, true, safeErrorMessage(error));
         } finally {
             lock.unlock();
         }
@@ -124,8 +158,16 @@ public class MealCacheService {
         return load(date).map(day -> day.meals().stream().anyMatch(meal -> meal.id().equals(mealId))).orElse(false);
     }
 
+    public boolean hasMealData(LocalDate date) {
+        return load(date).map(day -> !day.meals().isEmpty()).orElse(false);
+    }
+
     private MealModels.CachedMealDay cacheMeals(LocalDate date, List<MealModels.UpstreamMeal> upstream,
-                                                MealModels.CachedMealDay existing) {
+                                                MealModels.CachedMealDay existing, boolean downloadImages) {
+        if (upstream.isEmpty() && existing != null && !existing.meals().isEmpty()) {
+            return new MealModels.CachedMealDay(date, properties.restaurantName(), existing.complete(),
+                    existing.meals(), existing.message(), Instant.now(clock));
+        }
         List<MealModels.CachedMeal> cached = new ArrayList<>();
         for (int index = 0; index < upstream.size(); index++) {
             MealModels.UpstreamMeal meal = upstream.get(index);
@@ -139,7 +181,8 @@ public class MealCacheService {
             String imageHash = previous == null ? null : previous.imageHash();
             boolean placeholder = previous != null && previous.placeholder();
 
-            if ((placeholder || imageFile == null || !Files.isRegularFile(dateDir(date).resolve(imageFile)))
+            if (downloadImages
+                    && (placeholder || imageFile == null || !Files.isRegularFile(dateDir(date).resolve(imageFile)))
                     && meal.photoUrl() != null && !meal.photoUrl().isBlank()) {
                 try {
                     MealModels.DownloadedImage image = gateway.downloadImage(meal.photoUrl());
@@ -161,9 +204,13 @@ public class MealCacheService {
                     meal.photoUrl(), imageFile, contentType, imageHash, placeholder));
         }
         cached = markDuplicateImagesAsPlaceholders(cached);
-        boolean complete = !cached.isEmpty() && cached.stream().allMatch(MealModels.CachedMeal::hasCachedImage);
+        boolean emptyIsFinal = cached.isEmpty() && mayFinalizeEmptyResult(date);
+        boolean complete = emptyIsFinal
+                || (!cached.isEmpty() && cached.stream().allMatch(MealModels.CachedMeal::hasCachedImage));
         long placeholderCount = cached.stream().filter(MealModels.CachedMeal::placeholder).count();
-        String message = complete
+        String message = emptyIsFinal
+                ? "해당 날짜에는 등록된 식단이 없습니다."
+                : complete
                 ? "오늘의 식단이 준비되었습니다."
                 : placeholderCount > 0
                     ? "메뉴 이미지 준비 중 화면을 감지해 실제 사진을 기다리고 있어요."
@@ -266,35 +313,43 @@ public class MealCacheService {
     }
 
     private boolean shouldAttempt(LocalDate date, Instant now, LocalTime localTime) {
-        if (!date.equals(LocalDate.now(clock)) || isNonWorkingDay(date)) {
+        if (!date.equals(LocalDate.now(clock))) {
             return false;
         }
         Instant last = lastAttempts.get(date);
-        Duration interval = isPollingWindow(localTime) ? properties.retryInterval() : properties.offHoursRetryInterval();
+        Duration interval = isActiveWindow(localTime) ? properties.retryInterval() : properties.offHoursRetryInterval();
         return last == null || now.isAfter(last.plus(interval));
     }
 
     private Instant nextAttempt(LocalDate date, Instant now, LocalTime localTime) {
-        if (!date.equals(LocalDate.now(clock)) || isNonWorkingDay(date)) {
+        if (!date.equals(LocalDate.now(clock))) {
             return null;
         }
         Instant last = lastAttempts.get(date);
-        Duration interval = isPollingWindow(localTime) ? properties.retryInterval() : properties.offHoursRetryInterval();
+        Duration interval = isActiveWindow(localTime) ? properties.retryInterval() : properties.offHoursRetryInterval();
         return last == null ? now : last.plus(interval);
     }
 
     private boolean isClosedDate(LocalDate date, LocalDate today) {
-        return date.isBefore(today) || date.isAfter(today) || isNonWorkingDay(date);
+        return date.isBefore(today) || date.isAfter(today);
     }
 
-    private boolean isNonWorkingDay(LocalDate date) {
-        return date.getDayOfWeek() == DayOfWeek.SATURDAY
-                || date.getDayOfWeek() == DayOfWeek.SUNDAY
-                || properties.holidays().contains(date);
+    private static boolean isActiveWindow(LocalTime time) {
+        return !time.isBefore(ACTIVE_START) && !time.isAfter(PHOTO_POLL_END);
     }
 
-    private static boolean isPollingWindow(LocalTime time) {
-        return !time.isBefore(POLL_START) && !time.isAfter(POLL_END);
+    private static boolean isPhotoPollingWindow(LocalTime time) {
+        return !time.isBefore(PHOTO_POLL_START) && !time.isAfter(PHOTO_POLL_END);
+    }
+
+    private boolean mayFinalizeEmptyResult(LocalDate date) {
+        ZonedDateTime now = ZonedDateTime.now(clock);
+        return date.isBefore(now.toLocalDate())
+                || (date.equals(now.toLocalDate()) && !now.toLocalTime().isBefore(PHOTO_POLL_END));
+    }
+
+    private static MealModels.Status completedStatus(MealModels.CachedMealDay day) {
+        return day.meals().isEmpty() ? MealModels.Status.UNAVAILABLE : MealModels.Status.READY;
     }
 
     private Path dateDir(LocalDate date) {
@@ -370,6 +425,16 @@ public class MealCacheService {
             return "서버에 웰스토리 계정 설정이 필요합니다.";
         }
         return "웰스토리 식단을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+
+    public enum RefreshState {
+        COMPLETE, PARTIAL, ALREADY_COMPLETE, THROTTLED, BUSY, FAILED
+    }
+
+    public record RefreshResult(RefreshState state, boolean upstreamCalled, String message) {
+        public boolean successful() {
+            return state != RefreshState.FAILED && state != RefreshState.BUSY;
+        }
     }
 
     public record ImageAsset(Path path, String contentType) {}
