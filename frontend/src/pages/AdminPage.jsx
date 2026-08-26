@@ -23,7 +23,7 @@ export default function AdminPage() {
         <PrimaryButton onClick={refreshToday} disabled={refreshing}>{refreshing ? '확인 중…' : '지금 확인'}</PrimaryButton>
       </header>
 
-      {error && <p className="mt-8 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-600/10">{error.message}</p>}
+      {error && <p className="mt-8 rounded-2xl bg-red-500/10 px-5 py-4 text-sm font-medium text-red-600 ring-1 ring-red-500/20 dark:text-red-400">{error.message}</p>}
 
       {data && (
         <>
@@ -49,7 +49,7 @@ export default function AdminPage() {
           </section>
 
           <section className="mt-8 overflow-hidden rounded-[1.5rem] bg-surface shadow-sm ring-1 ring-[var(--theme-border)]">
-            <div className="border-b border-black/7 px-5 py-5 sm:px-6">
+            <div className="border-b border-[var(--theme-border)] px-5 py-5 sm:px-6">
               <h2 className="text-lg font-bold">날짜별 캐시</h2>
               <p className="mt-1 text-xs leading-5 text-muted">{data.pollingSchedule} · 완료된 날짜는 웰스토리에 다시 요청하지 않습니다.</p>
             </div>

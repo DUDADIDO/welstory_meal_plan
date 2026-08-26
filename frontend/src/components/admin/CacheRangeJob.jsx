@@ -20,7 +20,7 @@ export default function CacheRangeJob({ job, busy, onStart, onCancel }) {
   }
 
   return (
-    <section className="mt-8 rounded-[1.5rem] bg-white p-6 shadow-sm ring-1 ring-black/5">
+    <section className="mt-8 rounded-[1.5rem] bg-surface p-6 shadow-sm ring-1 ring-black/5">
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div>
           <h2 className="text-lg font-bold">날짜 범위 캐시</h2>
@@ -35,12 +35,12 @@ export default function CacheRangeJob({ job, busy, onStart, onCancel }) {
       </div>
 
       {job && (
-        <div className="mt-6 rounded-2xl bg-[#f5f5f7] p-5">
+        <div className="mt-6 rounded-2xl bg-[var(--theme-subtle)] p-5">
           <div className="flex items-center justify-between gap-4 text-sm">
             <div><strong>{statusLabel[job.status] || job.status}</strong><span className="ml-2 text-muted">{job.processed} / {job.total}일</span></div>
             <strong className="text-apple-blue">{job.progressPercent}%</strong>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/8"><div className="h-full rounded-full bg-apple-blue transition-[width] duration-500" style={{ width: `${job.progressPercent}%` }} /></div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--theme-subtle)]"><div className="h-full rounded-full bg-apple-blue transition-[width] duration-500" style={{ width: `${job.progressPercent}%` }} /></div>
           <div className="mt-4 grid gap-2 text-xs text-muted sm:grid-cols-2 lg:grid-cols-4">
             <span>현재: <b className="text-ink">{job.currentDate || '—'}</b></span>
             <span>성공: <b className="text-ink">{job.succeeded}</b></span>
@@ -59,7 +59,7 @@ function DateField({ label, value, onChange, ...props }) {
   return (
     <label className="grid gap-1 text-xs font-semibold text-muted">
       {label}
-      <input type="date" value={value} onChange={(event) => onChange(event.target.value)} className="h-10 rounded-xl border border-black/10 bg-white px-3 text-sm font-medium text-ink outline-none focus:border-apple-blue" {...props} />
+      <input type="date" value={value} onChange={(event) => onChange(event.target.value)} className="h-10 rounded-xl border border-[var(--theme-border)] bg-surface px-3 text-sm font-medium text-ink outline-none focus:border-apple-blue" {...props} />
     </label>
   )
 }

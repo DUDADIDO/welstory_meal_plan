@@ -84,10 +84,10 @@ export default function CacheCalendar({ caches }) {
 
             if (cache?.complete) {
               stateClass =
-                'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15 hover:bg-emerald-100'
+                'bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20 hover:bg-emerald-500/15'
             } else if (cache) {
               stateClass =
-                'bg-amber-50 text-amber-700 ring-1 ring-amber-600/15 hover:bg-amber-100'
+                'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20 hover:bg-amber-500/15'
             }
 
             if (selectedDay) {
@@ -132,7 +132,7 @@ export default function CacheCalendar({ caches }) {
           </span>
 
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-black/15" />
+            <span className="size-2 rounded-full bg-[var(--theme-line)]" />
             캐시 없음
           </span>
         </div>
