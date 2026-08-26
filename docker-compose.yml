@@ -1,8 +1,26 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: welstory-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-welstory}
+      POSTGRES_USER: ${POSTGRES_USER:-welstory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-postgres-password}
+    volumes:
+      - welstory-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   welstory-meal:
     build: .
     container_name: welstory-meal
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8080}:8080"
     env_file:
@@ -10,6 +28,9 @@ services:
     environment:
       TZ: Asia/Seoul
       WELSTORY_CACHE_DIR: /data/cache
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-welstory}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-welstory}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change-this-postgres-password}
     volumes:
       - welstory-cache:/data/cache
     read_only: true
@@ -20,3 +41,4 @@ services:
 
 volumes:
   welstory-cache:
+  welstory-postgres:

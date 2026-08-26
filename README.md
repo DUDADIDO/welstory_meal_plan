@@ -11,6 +11,7 @@
 - 메뉴 이미지를 모두 내려받으면 그 날짜를 `READY`로 봉인합니다. 이후에는 서버 재시작 뒤에도 웰스토리를 다시 호출하지 않고 Docker 볼륨의 JSON과 이미지만 제공합니다.
 - 완성된 API 응답은 12시간, 이미지는 30일 동안 브라우저/리버스 프록시에서 캐시할 수 있습니다.
 - 주말과 휴일도 웰스토리 응답을 기준으로 처리하며, 확정된 식단 없음 결과도 캐시합니다.
+- 식단 상태·별점·방문자 통계의 메타데이터는 PostgreSQL에 저장하고, 식단 이미지 파일만 Docker 캐시 볼륨에 저장합니다.
 
 ## Docker로 실행
 
@@ -27,9 +28,12 @@ WELSTORY_USERNAME=웰스토리_아이디
 WELSTORY_PASSWORD=웰스토리_비밀번호
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=충분히_긴_랜덤_비밀번호
+POSTGRES_DB=welstory
+POSTGRES_USER=welstory
+POSTGRES_PASSWORD=충분히_긴_DB_비밀번호
 ```
 
-기본 접속 주소는 `http://localhost:8080`입니다. 캐시는 `welstory-cache` Docker 볼륨에 보존됩니다. 홈 서버에서 HTTPS를 쓴다면 Caddy, Nginx Proxy Manager 같은 리버스 프록시를 이 컨테이너의 8080 포트 앞에 두면 됩니다.
+기본 접속 주소는 `http://localhost:8080`입니다. PostgreSQL은 `welstory-postgres` 컨테이너와 `welstory-postgres` 볼륨으로 운영되며, Flyway가 최초 기동 시 스키마를 자동 생성합니다. 이미지는 `welstory-cache` Docker 볼륨에 보존됩니다. 홈 서버에서 HTTPS를 쓴다면 Caddy, Nginx Proxy Manager 같은 리버스 프록시를 이 컨테이너의 8080 포트 앞에 두면 됩니다.
 
 상태 확인:
 
@@ -63,6 +67,9 @@ Vite 개발 서버는 `/api` 요청을 `localhost:8080`으로 프록시합니다
 | `WELSTORY_RESTAURANT_CODE` | `REST000595` | 식당 코드 |
 | `WELSTORY_MEAL_TYPE` | `2` | 중식 코드 |
 | `WELSTORY_CACHE_DIR` | `./data/cache` | 영속 캐시 경로 |
+| `POSTGRES_DB` | `welstory` | PostgreSQL 데이터베이스 이름 |
+| `POSTGRES_USER` | `welstory` | PostgreSQL 사용자 |
+| `POSTGRES_PASSWORD` | 없음 | PostgreSQL 비밀번호, 필수 변경 |
 | `ADMIN_USERNAME` | 없음 | `/admin` 운영 콘솔 ID |
 | `ADMIN_PASSWORD` | 없음 | `/admin` 운영 콘솔 비밀번호 |
 | `APP_PORT` | `8080` | Docker 호스트 공개 포트 |

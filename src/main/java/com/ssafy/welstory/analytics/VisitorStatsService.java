@@ -1,13 +1,9 @@
 package com.ssafy.welstory.analytics;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.welstory.config.WelstoryProperties;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -18,129 +14,40 @@ import java.util.Set;
 
 @Service
 public class VisitorStatsService {
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private final VisitorVisitRepository repository;
 
-    private static final ZoneId SEOUL =
-            ZoneId.of("Asia/Seoul");
-
-    private final ObjectMapper objectMapper;
-    private final Path statsFile;
-
-    private final Map<String, Set<String>> visitors =
-            new HashMap<>();
-
-    public VisitorStatsService(
-            ObjectMapper objectMapper,
-            WelstoryProperties properties
-    ) {
-        this.objectMapper = objectMapper;
-
-        this.statsFile = properties
-                .cacheDir()
-                .toAbsolutePath()
-                .normalize()
-                .resolve("visitor-stats.json");
-
-        load();
+    public VisitorStatsService(VisitorVisitRepository repository) {
+        this.repository = repository;
     }
 
-    public synchronized void record(String clientId) {
-        if (clientId == null || clientId.isBlank()) {
-            return;
-        }
-
-        LocalDate today =
-                LocalDate.now(SEOUL);
-
-        visitors
-                .computeIfAbsent(
-                        today.toString(),
-                        ignored -> new HashSet<>()
-                )
-                .add(clientId);
-
-        persist();
-    }
-
-    public synchronized Stats stats() {
-        LocalDate today =
-                LocalDate.now(SEOUL);
-
-        YearMonth month =
-                YearMonth.from(today);
-
-        int dailyVisitors =
-                visitors
-                        .getOrDefault(
-                                today.toString(),
-                                Set.of()
-                        )
-                        .size();
-
-        Set<String> monthlyUnique =
-                new HashSet<>();
-
-        visitors.forEach((dateText, ids) -> {
+    @Transactional
+    public void record(String clientId) {
+        if (clientId == null || clientId.isBlank()) return;
+        LocalDate today = LocalDate.now(SEOUL);
+        if (!repository.existsByVisitDateAndClientId(today, clientId)) {
             try {
-                LocalDate date =
-                        LocalDate.parse(dateText);
-
-                if (YearMonth.from(date).equals(month)) {
-                    monthlyUnique.addAll(ids);
-                }
-            } catch (Exception ignored) {
+                repository.save(new VisitorVisitEntity(today, clientId, java.time.Instant.now()));
+            } catch (DataIntegrityViolationException ignored) {
+                // A concurrent request may have inserted the same daily visitor first.
             }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Stats stats() {
+        LocalDate today = LocalDate.now(SEOUL);
+        LocalDate monthStart = YearMonth.from(today).atDay(1);
+        var visits = repository.findByVisitDateBetween(monthStart, today);
+        int dailyVisitors = (int) visits.stream().filter(v -> v.getVisitDate().equals(today)).count();
+        Set<String> monthlyUnique = new HashSet<>();
+        Map<String, Integer> daily = new HashMap<>();
+        visits.forEach(visit -> {
+            monthlyUnique.add(visit.getClientId());
+            daily.merge(visit.getVisitDate().toString(), 1, Integer::sum);
         });
-
-        Map<String, Integer> daily =
-                new HashMap<>();
-
-        visitors.forEach((date, ids) ->
-                daily.put(date, ids.size())
-        );
-
-        return new Stats(
-                dailyVisitors,
-                monthlyUnique.size(),
-                Map.copyOf(daily)
-        );
+        return new Stats(dailyVisitors, monthlyUnique.size(), Map.copyOf(daily));
     }
 
-    private void load() {
-        if (!Files.isRegularFile(statsFile)) {
-            return;
-        }
-
-        try {
-            Map<String, Set<String>> loaded =
-                    objectMapper.readValue(
-                            statsFile.toFile(),
-                            new TypeReference<>() {}
-                    );
-
-            visitors.putAll(loaded);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void persist() {
-        try {
-            Files.createDirectories(
-                    statsFile.getParent()
-            );
-
-            objectMapper
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValue(
-                            statsFile.toFile(),
-                            visitors
-                    );
-        } catch (IOException ignored) {
-        }
-    }
-
-    public record Stats(
-            int dailyVisitors,
-            int monthlyVisitors,
-            Map<String, Integer> daily
-    ) {}
+    public record Stats(int dailyVisitors, int monthlyVisitors, Map<String, Integer> daily) {}
 }

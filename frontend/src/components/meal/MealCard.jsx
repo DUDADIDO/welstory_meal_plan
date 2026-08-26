@@ -74,6 +74,12 @@ export default function MealCard({
           </p>
         )}
 
+        {meal.calorie && (
+          <p className="mt-3 inline-flex items-center rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600">
+            칼로리 · {meal.calorie}
+          </p>
+        )}
+
         <div className="mt-5">
           <StarRating
             mealName={meal.name}

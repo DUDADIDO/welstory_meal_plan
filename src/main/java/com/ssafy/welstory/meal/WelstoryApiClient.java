@@ -16,6 +16,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -80,7 +82,8 @@ public class WelstoryApiClient implements WelstoryGateway {
                     course,
                     name,
                     nullableText(meal, "subMenuTxt"),
-                    text(meal, "photoUrl") + text(meal, "photoCd")
+                    text(meal, "photoUrl") + text(meal, "photoCd"),
+                    calorie(meal)
             ));
             if (meals.size() == 6) {
                 break;
@@ -139,5 +142,44 @@ public class WelstoryApiClient implements WelstoryGateway {
     private static String nullableText(JsonNode node, String field) {
         String value = text(node, field);
         return value.isBlank() ? null : value;
+    }
+
+    private static String calorie(JsonNode meal) {
+        String[] keys = {"calorie", "calories", "calorieTxt", "calorieInfo", "calorieValue",
+                "kcal", "kcalTxt", "menuKcal", "menuKcalTxt", "menuCalorie", "energyKcal", "energy"};
+        for (String key : keys) {
+            String value = nullableText(meal, key);
+            if (value != null) return normalizeCalorie(value);
+        }
+        for (String parent : new String[]{"nutrition", "nutrient", "nutritionInfo"}) {
+            JsonNode nested = meal.path(parent);
+            for (String key : keys) {
+                String value = nullableText(nested, key);
+                if (value != null) return normalizeCalorie(value);
+            }
+        }
+        return findNestedCalorie(meal, 0);
+    }
+
+    private static String findNestedCalorie(JsonNode node, int depth) {
+        if (node == null || depth > 3 || !node.isContainerNode()) return null;
+        var fields = node.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            String key = entry.getKey().toLowerCase(Locale.ROOT);
+            JsonNode value = entry.getValue();
+            if ((key.contains("calorie") || key.contains("kcal")) && value.isValueNode()) {
+                String text = nullableText(node, entry.getKey());
+                if (text != null) return normalizeCalorie(text);
+            }
+            String nested = findNestedCalorie(value, depth + 1);
+            if (nested != null) return nested;
+        }
+        return null;
+    }
+
+    private static String normalizeCalorie(String value) {
+        String trimmed = value.trim();
+        return trimmed.matches(".*(?i)(kcal|칼로리).*") ? trimmed : trimmed + " kcal";
     }
 }

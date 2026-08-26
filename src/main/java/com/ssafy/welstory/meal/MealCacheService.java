@@ -2,6 +2,8 @@ package com.ssafy.welstory.meal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.welstory.config.WelstoryProperties;
+import com.ssafy.welstory.meal.persistence.MealCacheFileStore;
+import com.ssafy.welstory.meal.persistence.MealCacheStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.*;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -50,8 +51,9 @@ public class MealCacheService {
 
     private final WelstoryGateway gateway;
     private final WelstoryProperties properties;
-    private final ObjectMapper objectMapper;
     private final ImagePlaceholderDetector placeholderDetector;
+    private final MealCacheStore cacheStore;
+    private final MealCacheFileStore fileStore;
     private final Clock clock;
 
     private final Map<LocalDate, MealModels.CachedMealDay> memory =
@@ -83,13 +85,15 @@ public class MealCacheService {
             WelstoryGateway gateway,
             WelstoryProperties properties,
             ObjectMapper objectMapper,
-            ImagePlaceholderDetector placeholderDetector
+            ImagePlaceholderDetector placeholderDetector,
+            MealCacheStore cacheStore
     ) {
         this(
                 gateway,
                 properties,
                 objectMapper,
                 placeholderDetector,
+                cacheStore,
                 Clock.system(SEOUL)
         );
     }
@@ -101,10 +105,22 @@ public class MealCacheService {
             ImagePlaceholderDetector placeholderDetector,
             Clock clock
     ) {
+        this(gateway, properties, objectMapper, placeholderDetector, null, clock);
+    }
+
+    MealCacheService(
+            WelstoryGateway gateway,
+            WelstoryProperties properties,
+            ObjectMapper objectMapper,
+            ImagePlaceholderDetector placeholderDetector,
+            MealCacheStore cacheStore,
+            Clock clock
+    ) {
         this.gateway = gateway;
         this.properties = properties;
-        this.objectMapper = objectMapper;
         this.placeholderDetector = placeholderDetector;
+        this.cacheStore = cacheStore;
+        this.fileStore = new MealCacheFileStore(properties.cacheDir(), objectMapper);
         this.clock = clock;
     }
 
@@ -569,7 +585,7 @@ public class MealCacheService {
                 .map(
                         meal ->
                                 new ImageAsset(
-                                        dateDir(date)
+                                        fileStore.dateDir(date)
                                                 .resolve(
                                                         meal.imageFile()
                                                 )
@@ -581,7 +597,7 @@ public class MealCacheService {
                         asset ->
                                 asset.path()
                                         .startsWith(
-                                                dateDir(date)
+                                                        fileStore.dateDir(date)
                                                         .normalize()
                                         )
                                         && Files.isRegularFile(
@@ -718,7 +734,7 @@ public class MealCacheService {
                             placeholder
                                     || imageFile == null
                                     || !Files.isRegularFile(
-                                    dateDir(date)
+                                    fileStore.dateDir(date)
                                             .resolve(imageFile)
                             )
                     )
@@ -739,12 +755,12 @@ public class MealCacheService {
                             );
 
                     imageFile =
-                            id + extension(
+                            id + MealCacheFileStore.extension(
                                     image.contentType()
                             );
 
-                    writeAtomically(
-                            dateDir(date)
+                    fileStore.writeAtomically(
+                            fileStore.dateDir(date)
                                     .resolve(imageFile),
                             image.bytes()
                     );
@@ -784,7 +800,8 @@ public class MealCacheService {
                             imageFile,
                             contentType,
                             imageHash,
-                            placeholder
+                            placeholder,
+                            meal.calorie()
                     )
             );
         }
@@ -846,27 +863,30 @@ public class MealCacheService {
             return Optional.of(present);
         }
 
-        Path metadata =
-                dateDir(date)
-                        .resolve("cache.json");
-
-        if (!Files.isRegularFile(metadata)) {
-
-            return Optional.empty();
+        if (cacheStore != null) {
+            Optional<MealModels.CachedMealDay> stored = cacheStore.find(date);
+            if (stored.isPresent()) {
+                MealModels.CachedMealDay upgraded = upgradeLegacyCache(stored.get());
+                memory.put(date, upgraded);
+                return Optional.of(upgraded);
+            }
         }
 
         try {
-
-            MealModels.CachedMealDay loaded =
-                    objectMapper.readValue(
-                            metadata.toFile(),
-                            MealModels.CachedMealDay.class
-                    );
+            Optional<MealModels.CachedMealDay> legacy = fileStore.read(date);
+            if (legacy.isEmpty()) {
+                return Optional.empty();
+            }
+            MealModels.CachedMealDay loaded = legacy.get();
 
             loaded =
                     upgradeLegacyCache(
                             loaded
                     );
+
+            if (cacheStore != null) {
+                cacheStore.save(loaded);
+            }
 
             memory.put(
                     date,
@@ -878,8 +898,8 @@ public class MealCacheService {
         } catch (IOException error) {
 
             log.warn(
-                    "Ignoring unreadable cache {}: {}",
-                    metadata,
+                    "Ignoring unreadable legacy cache {}: {}",
+                    fileStore.dateDir(date),
                     error.getMessage()
             );
 
@@ -930,7 +950,7 @@ public class MealCacheService {
 
                                 byte[] bytes =
                                         Files.readAllBytes(
-                                                dateDir(
+                                                fileStore.dateDir(
                                                         day.date()
                                                 ).resolve(
                                                         meal.imageFile()
@@ -951,7 +971,8 @@ public class MealCacheService {
                                         meal.imageFile(),
                                         meal.imageContentType(),
                                         result.hash(),
-                                        result.placeholder()
+                                        result.placeholder(),
+                                        meal.calorie()
                                 );
 
                             } catch (IOException ignored) {
@@ -965,7 +986,8 @@ public class MealCacheService {
                                         null,
                                         null,
                                         null,
-                                        false
+                                        false,
+                                        meal.calorie()
                                 );
                             }
                         })
@@ -1027,81 +1049,11 @@ public class MealCacheService {
             MealModels.CachedMealDay day
     ) throws IOException {
 
-        Files.createDirectories(
-                dateDir(day.date())
-        );
-
-        Path target =
-                dateDir(day.date())
-                        .resolve("cache.json");
-
-        Path temporary =
-                dateDir(day.date())
-                        .resolve("cache.json.tmp");
-
-        objectMapper
-                .writerWithDefaultPrettyPrinter()
-                .writeValue(
-                        temporary.toFile(),
-                        day
-                );
-
-        moveAtomically(
-                temporary,
-                target
-        );
-    }
-
-    private void writeAtomically(
-            Path target,
-            byte[] bytes
-    ) throws IOException {
-
-        Files.createDirectories(
-                target.getParent()
-        );
-
-        Path temporary =
-                target.resolveSibling(
-                        target.getFileName()
-                                + ".tmp"
-                );
-
-        Files.write(
-                temporary,
-                bytes
-        );
-
-        moveAtomically(
-                temporary,
-                target
-        );
-    }
-
-    private static void moveAtomically(
-            Path source,
-            Path target
-    ) throws IOException {
-
-        try {
-
-            Files.move(
-                    source,
-                    target,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-            );
-
-        } catch (
-                java.nio.file.AtomicMoveNotSupportedException ignored
-        ) {
-
-            Files.move(
-                    source,
-                    target,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+        if (cacheStore != null) {
+            cacheStore.save(day);
+            return;
         }
+        fileStore.write(day);
     }
 
     private MealModels.MealDayResponse response(
@@ -1109,38 +1061,7 @@ public class MealCacheService {
             MealModels.Status status,
             Instant nextCheckAt
     ) {
-
-        List<MealModels.MealItem> meals =
-                cached.meals()
-                        .stream()
-                        .map(
-                                meal ->
-                                        new MealModels.MealItem(
-                                                meal.id(),
-                                                meal.courseName(),
-                                                meal.name(),
-                                                meal.description(),
-                                                meal.hasCachedImage()
-                                                        ? "/api/meals/%s/images/%s?v=%s"
-                                                        .formatted(
-                                                                cached.date(),
-                                                                meal.id(),
-                                                                meal.imageHash()
-                                                        )
-                                                        : null
-                                        )
-                        )
-                        .toList();
-
-        return new MealModels.MealDayResponse(
-                cached.date(),
-                cached.restaurantName(),
-                status,
-                meals,
-                cached.message(),
-                cached.lastUpdatedAt(),
-                nextCheckAt
-        );
+        return MealResponseMapper.toResponse(cached, status, nextCheckAt);
     }
 
     private MealModels.MealDayResponse empty(
@@ -1323,19 +1244,6 @@ public class MealCacheService {
                 : MealModels.Status.READY;
     }
 
-    private Path dateDir(
-            LocalDate date
-    ) {
-
-        return properties
-                .cacheDir()
-                .toAbsolutePath()
-                .normalize()
-                .resolve(
-                        date.toString()
-                );
-    }
-
     private static MealModels.CachedMeal findExisting(
             MealModels.CachedMealDay day,
             String id
@@ -1409,7 +1317,8 @@ public class MealCacheService {
                             meal.imageFile(),
                             meal.imageContentType(),
                             meal.imageHash(),
-                            true
+                            true,
+                            meal.calorie()
                     );
                 })
                 .toList();
@@ -1421,6 +1330,10 @@ public class MealCacheService {
                 new HashSet<>(
                         memory.keySet()
                 );
+
+        if (cacheStore != null) {
+            dates.addAll(cacheStore.dates());
+        }
 
         Path root =
                 properties.cacheDir()
@@ -1521,9 +1434,7 @@ public class MealCacheService {
                         0,
                         missing
                 ),
-                directorySize(
-                        dateDir(date)
-                ),
+                fileStore.directorySize(date),
                 day == null
                         ? null
                         : day.lastUpdatedAt(),
@@ -1533,70 +1444,6 @@ public class MealCacheService {
                         ? "캐시 없음"
                         : day.message()
         );
-    }
-
-    private static long directorySize(
-            Path directory
-    ) {
-
-        if (!Files.isDirectory(directory)) {
-
-            return 0;
-        }
-
-        try (
-                var paths =
-                        Files.walk(directory)
-        ) {
-
-            return paths
-                    .filter(
-                            Files::isRegularFile
-                    )
-                    .mapToLong(path -> {
-
-                        try {
-
-                            return Files.size(path);
-
-                        } catch (IOException ignored) {
-
-                            return 0;
-                        }
-                    })
-                    .sum();
-
-        } catch (IOException ignored) {
-
-            return 0;
-        }
-    }
-
-    private static String extension(
-            String contentType
-    ) {
-
-        if (contentType == null) {
-
-            return ".jpg";
-        }
-
-        if (contentType.contains("png")) {
-
-            return ".png";
-        }
-
-        if (contentType.contains("webp")) {
-
-            return ".webp";
-        }
-
-        if (contentType.contains("gif")) {
-
-            return ".gif";
-        }
-
-        return ".jpg";
     }
 
     private static String safeErrorMessage(
