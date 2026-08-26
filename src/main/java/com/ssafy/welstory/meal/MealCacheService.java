@@ -41,6 +41,13 @@ public class MealCacheService {
     private static final LocalTime PHOTO_POLL_END =
             LocalTime.of(18, 0);
 
+    /*
+     * 미래 날짜 식단은 실시간성이 중요하지 않으므로
+     * 같은 날짜에 대해 24시간에 한 번만 외부 API를 호출한다.
+     */
+    private static final Duration FUTURE_RETRY_INTERVAL =
+            Duration.ofDays(1);
+
     private final WelstoryGateway gateway;
     private final WelstoryProperties properties;
     private final ObjectMapper objectMapper;
@@ -50,6 +57,12 @@ public class MealCacheService {
     private final Map<LocalDate, MealModels.CachedMealDay> memory =
             new ConcurrentHashMap<>();
 
+    /*
+     * 날짜별 마지막 웰스토리 API 호출 시각.
+     *
+     * 오늘 메뉴/사진 재시도 제한과
+     * 미래 식단 24시간 제한에 함께 사용한다.
+     */
     private final Map<LocalDate, Instant> lastAttempts =
             new ConcurrentHashMap<>();
 
@@ -59,6 +72,9 @@ public class MealCacheService {
     private final Map<LocalDate, ReentrantLock> locks =
             new ConcurrentHashMap<>();
 
+    /*
+     * 서로 다른 날짜라도 웰스토리 API를 동시에 호출하지 않도록 한다.
+     */
     private final ReentrantLock upstreamLock =
             new ReentrantLock();
 
@@ -103,10 +119,21 @@ public class MealCacheService {
         LocalDate today =
                 now.toLocalDate();
 
-        // 과거 날짜
+        /*
+         * =========================================================
+         * 과거 날짜
+         * =========================================================
+         *
+         * 일반 사용자가 과거 날짜를 조회할 때는
+         * 절대로 웰스토리 API를 새로 호출하지 않는다.
+         *
+         * 저장된 캐시가 있으면 그것만 반환한다.
+         * 없으면 UNAVAILABLE 처리한다.
+         */
         if (date.isBefore(today)) {
 
             if (cached != null) {
+
                 return response(
                         cached,
                         cached.complete()
@@ -124,24 +151,64 @@ public class MealCacheService {
             );
         }
 
-        // 미래 날짜
-        // 메뉴 정보만 가져오고 이미지는 받지 않는다.
+        /*
+         * =========================================================
+         * 미래 날짜
+         * =========================================================
+         *
+         * 미래 날짜는 메뉴 정보만 가져온다.
+         * 이미지는 받지 않는다.
+         *
+         * 식단이 아직 등록되지 않았더라도
+         * 같은 날짜를 계속 조회하며 API를 반복 호출하지 않도록
+         * 24시간에 한 번만 새로 확인한다.
+         */
         if (date.isAfter(today)) {
 
-            if (cached == null || cached.meals().isEmpty()) {
+            boolean needsMenu =
+                    cached == null
+                            || cached.meals().isEmpty();
+
+            if (
+                    needsMenu
+                            && shouldAttemptFuture(
+                            date,
+                            now.toInstant()
+                    )
+            ) {
+
                 refreshMenu(date);
-                cached = load(date).orElse(null);
+
+                cached =
+                        load(date).orElse(null);
             }
 
-            if (cached == null || cached.meals().isEmpty()) {
+            /*
+             * 캐시가 없거나,
+             * 마지막 확인 때 웰스토리에 아직 식단이 없었던 경우.
+             *
+             * 이 경우 API를 다시 치지 않고 WAITING 반환.
+             */
+            if (
+                    cached == null
+                            || cached.meals().isEmpty()
+            ) {
+
                 return empty(
                         date,
                         MealModels.Status.WAITING,
                         "아직 등록된 식단이 없습니다.",
-                        null
+                        nextFutureAttempt(
+                                date,
+                                now.toInstant()
+                        )
                 );
             }
 
+            /*
+             * 미래 날짜 메뉴가 이미 확보된 경우.
+             * 이미지는 아직 받지 않는다.
+             */
             return response(
                     cached,
                     MealModels.Status.WAITING,
@@ -149,8 +216,16 @@ public class MealCacheService {
             );
         }
 
-        // 오늘
-        if (cached != null && cached.complete()) {
+        /*
+         * =========================================================
+         * 오늘
+         * =========================================================
+         */
+
+        if (
+                cached != null
+                        && cached.complete()
+        ) {
 
             return response(
                     cached,
@@ -168,13 +243,20 @@ public class MealCacheService {
                         now.toLocalTime()
                 );
 
+        /*
+         * 오늘은 설정된 retry interval에 따라
+         * 메뉴 또는 사진을 재확인한다.
+         */
         if (
                 shouldAttempt(
                         date,
                         now.toInstant(),
                         now.toLocalTime()
                 )
-                        && (needsMenu || mayRefreshPhotos)
+                        && (
+                        needsMenu
+                                || mayRefreshPhotos
+                )
         ) {
 
             refresh(
@@ -186,7 +268,10 @@ public class MealCacheService {
                     load(date).orElse(cached);
         }
 
-        if (cached != null && cached.complete()) {
+        if (
+                cached != null
+                        && cached.complete()
+        ) {
 
             return response(
                     cached,
@@ -236,11 +321,11 @@ public class MealCacheService {
         );
     }
 
-    /**
+    /*
      * 일반 갱신.
      *
      * 오늘 날짜이며 사진 polling 시간대인 경우에만
-     * 이미지를 함께 다운로드한다.
+     * 이미지도 함께 다운로드한다.
      */
     public RefreshResult refresh(LocalDate date) {
 
@@ -250,8 +335,8 @@ public class MealCacheService {
         boolean downloadImages =
                 date.equals(now.toLocalDate())
                         && isPhotoPollingWindow(
-                                now.toLocalTime()
-                        );
+                        now.toLocalTime()
+                );
 
         return refresh(
                 date,
@@ -259,34 +344,38 @@ public class MealCacheService {
         );
     }
 
-    /**
-     * 관리자 범위 캐싱용.
+    /*
+     * 관리자 강제 캐싱용.
      *
-     * 과거 날짜라도 메뉴와 이미지를 모두 다운로드한다.
+     * 과거 날짜라도 이미지까지 다운로드한다.
      */
     public RefreshResult refreshWithImages(
             LocalDate date
     ) {
+
         return refresh(
                 date,
                 true
         );
     }
 
-    /**
-     * 메뉴 정보만 갱신한다.
+    /*
+     * 메뉴 정보만 가져온다.
+     *
+     * 미래 날짜 조회 등에 사용한다.
      */
     public RefreshResult refreshMenu(
             LocalDate date
     ) {
+
         return refresh(
                 date,
                 false
         );
     }
 
-    /**
-     * 오늘 사진 재확인용.
+    /*
+     * 오늘 사진 polling용.
      */
     public RefreshResult refreshPhotosIfDue(
             LocalDate date
@@ -301,10 +390,10 @@ public class MealCacheService {
         if (
                 lastAttempt != null
                         && now.isBefore(
-                                lastAttempt.plus(
-                                        properties.retryInterval()
-                                )
+                        lastAttempt.plus(
+                                properties.retryInterval()
                         )
+                )
         ) {
 
             return new RefreshResult(
@@ -320,6 +409,9 @@ public class MealCacheService {
         );
     }
 
+    /*
+     * 실제 웰스토리 API 호출 및 캐시 처리.
+     */
     private RefreshResult refresh(
             LocalDate date,
             boolean downloadImages
@@ -346,6 +438,9 @@ public class MealCacheService {
             MealModels.CachedMealDay existing =
                     load(date).orElse(null);
 
+            /*
+             * 이미 완료 캐시면 외부 API를 다시 호출하지 않는다.
+             */
             if (
                     existing != null
                             && existing.complete()
@@ -377,6 +472,9 @@ public class MealCacheService {
                     );
                 }
 
+                /*
+                 * 실제 외부 API를 호출하기 직전에 기록.
+                 */
                 lastAttempts.put(
                         date,
                         Instant.now(clock)
@@ -530,6 +628,11 @@ public class MealCacheService {
             boolean downloadImages
     ) {
 
+        /*
+         * 기존 메뉴 데이터가 있는데
+         * 웰스토리가 일시적으로 빈 값을 반환한 경우에는
+         * 기존 캐시를 유지한다.
+         */
         if (
                 upstream.isEmpty()
                         && existing != null
@@ -569,12 +672,16 @@ public class MealCacheService {
                             id
                     );
 
+            /*
+             * 웰스토리의 이미지 URL이 바뀌었으면
+             * 이전 이미지 캐시를 재사용하지 않는다.
+             */
             if (
                     previous != null
                             && !java.util.Objects.equals(
-                                    previous.originalImageUrl(),
-                                    meal.photoUrl()
-                            )
+                            previous.originalImageUrl(),
+                            meal.photoUrl()
+                    )
             ) {
 
                 previous = null;
@@ -599,6 +706,12 @@ public class MealCacheService {
                     previous != null
                             && previous.placeholder();
 
+            /*
+             * 이미지 다운로드가 허용된 상황에서만 실행.
+             *
+             * - 관리자 강제 캐싱
+             * - 오늘 사진 polling
+             */
             if (
                     downloadImages
                             && (
@@ -729,6 +842,7 @@ public class MealCacheService {
                 memory.get(date);
 
         if (present != null) {
+
             return Optional.of(present);
         }
 
@@ -737,6 +851,7 @@ public class MealCacheService {
                         .resolve("cache.json");
 
         if (!Files.isRegularFile(metadata)) {
+
             return Optional.empty();
         }
 
@@ -790,6 +905,7 @@ public class MealCacheService {
                         );
 
         if (!needsAnalysis) {
+
             return day;
         }
 
@@ -1045,6 +1161,9 @@ public class MealCacheService {
         );
     }
 
+    /*
+     * 오늘 날짜 재시도 판단.
+     */
     private boolean shouldAttempt(
             LocalDate date,
             Instant now,
@@ -1052,6 +1171,7 @@ public class MealCacheService {
     ) {
 
         if (!date.equals(LocalDate.now(clock))) {
+
             return false;
         }
 
@@ -1064,11 +1184,51 @@ public class MealCacheService {
                         : properties.offHoursRetryInterval();
 
         return last == null
-                || now.isAfter(
+                || !now.isBefore(
                 last.plus(interval)
         );
     }
 
+    /*
+     * 미래 날짜는 24시간에 한 번만 웰스토리 API 호출.
+     */
+    private boolean shouldAttemptFuture(
+            LocalDate date,
+            Instant now
+    ) {
+
+        Instant last =
+                lastAttempts.get(date);
+
+        return last == null
+                || !now.isBefore(
+                last.plus(
+                        FUTURE_RETRY_INTERVAL
+                )
+        );
+    }
+
+    /*
+     * 미래 날짜의 다음 확인 가능 시각.
+     */
+    private Instant nextFutureAttempt(
+            LocalDate date,
+            Instant now
+    ) {
+
+        Instant last =
+                lastAttempts.get(date);
+
+        return last == null
+                ? now
+                : last.plus(
+                FUTURE_RETRY_INTERVAL
+        );
+    }
+
+    /*
+     * 오늘 날짜의 다음 확인 시각.
+     */
     private Instant nextAttempt(
             LocalDate date,
             Instant now,
@@ -1076,6 +1236,7 @@ public class MealCacheService {
     ) {
 
         if (!date.equals(LocalDate.now(clock))) {
+
             return null;
         }
 
@@ -1096,6 +1257,7 @@ public class MealCacheService {
             LocalDate date,
             LocalDate today
     ) {
+
         return date.isBefore(today)
                 || date.isAfter(today);
     }
@@ -1104,7 +1266,9 @@ public class MealCacheService {
             LocalTime time
     ) {
 
-        return !time.isBefore(ACTIVE_START)
+        return !time.isBefore(
+                ACTIVE_START
+        )
                 && !time.isAfter(
                 PHOTO_POLL_END
         );
@@ -1122,6 +1286,13 @@ public class MealCacheService {
         );
     }
 
+    /*
+     * 빈 식단 결과를 최종 확정할 수 있는지 판단.
+     *
+     * 과거 날짜는 빈 식단이면 최종 확정.
+     * 오늘은 18시 이후에만 최종 확정.
+     * 미래 날짜는 아직 올라올 수 있으므로 확정하지 않는다.
+     */
     private boolean mayFinalizeEmptyResult(
             LocalDate date
     ) {
@@ -1171,6 +1342,7 @@ public class MealCacheService {
     ) {
 
         if (day == null) {
+
             return null;
         }
 
@@ -1243,8 +1415,7 @@ public class MealCacheService {
                 .toList();
     }
 
-    public List<MealModels.CacheEntry>
-    inspectCaches() {
+    public List<MealModels.CacheEntry> inspectCaches() {
 
         Set<LocalDate> dates =
                 new HashSet<>(
@@ -1280,9 +1451,7 @@ public class MealCacheService {
                                         LocalDate.parse(name)
                                 );
 
-                            } catch (
-                                    Exception ignored
-                            ) {
+                            } catch (Exception ignored) {
                             }
                         });
 
@@ -1371,6 +1540,7 @@ public class MealCacheService {
     ) {
 
         if (!Files.isDirectory(directory)) {
+
             return 0;
         }
 
@@ -1389,9 +1559,7 @@ public class MealCacheService {
 
                             return Files.size(path);
 
-                        } catch (
-                                IOException ignored
-                        ) {
+                        } catch (IOException ignored) {
 
                             return 0;
                         }
@@ -1409,18 +1577,22 @@ public class MealCacheService {
     ) {
 
         if (contentType == null) {
+
             return ".jpg";
         }
 
         if (contentType.contains("png")) {
+
             return ".png";
         }
 
         if (contentType.contains("webp")) {
+
             return ".webp";
         }
 
         if (contentType.contains("gif")) {
+
             return ".gif";
         }
 
