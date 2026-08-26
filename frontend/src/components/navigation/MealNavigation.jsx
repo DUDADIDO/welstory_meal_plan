@@ -4,7 +4,8 @@ import DatePicker from '../calendar/DatePicker'
 import { formatDate, moveDate } from '../../utils/date'
 import ThemeToggle from '../common/ThemeToggle'
 
-const arrowButton = 'grid size-9 place-items-center rounded-full border border-black/8 bg-white text-ink shadow-sm transition hover:bg-black/3 disabled:opacity-25'
+const arrowButton =
+  'grid size-9 place-items-center rounded-full border border-[var(--theme-border)] bg-surface text-ink shadow-sm transition hover:bg-[var(--theme-hover)] disabled:opacity-25'
 
 export default function MealNavigation({ date, today, onChange }) {
   return (

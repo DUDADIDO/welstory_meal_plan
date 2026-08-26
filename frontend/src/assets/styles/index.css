@@ -71,9 +71,6 @@ html.dark {
     background: var(--theme-canvas);
     color: var(--theme-ink);
 
-    transition:
-      background-color 180ms ease,
-      color 180ms ease;
   }
 
   button,
@@ -88,4 +85,18 @@ html.dark {
   button:disabled {
     cursor: not-allowed;
   }
+}
+
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition-property:
+    background-color,
+    border-color,
+    color,
+    fill,
+    stroke !important;
+
+  transition-duration: 180ms !important;
+  transition-timing-function: ease !important;
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 const THEME_KEY = 'welstory-theme'
+const THEME_TRANSITION_MS = 180
 
 function systemPrefersDark() {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
@@ -38,11 +39,19 @@ export function useTheme() {
   }, [theme])
 
   const toggleTheme = useCallback(() => {
+    const root = document.documentElement
+
+    root.classList.add('theme-switching')
+
     setTheme((current) => (
       current === 'dark'
         ? 'light'
         : 'dark'
     ))
+
+    window.setTimeout(() => {
+      root.classList.remove('theme-switching')
+    }, THEME_TRANSITION_MS)
   }, [])
 
   return {
