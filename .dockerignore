@@ -1,0 +1,11 @@
+.git
+.gitignore
+.idea
+.vscode
+.env
+frontend/node_modules
+frontend/dist
+target
+data
+legacy
+*.log

@@ -1,0 +1,6 @@
+version: "3.8"
+services:
+  meal-bot:
+    build: .
+    container_name: meal-bot-instance
+    env_file: .env
