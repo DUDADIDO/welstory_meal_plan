@@ -13,9 +13,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.*;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -24,11 +28,12 @@ public class MealCacheService {
     private static final Logger log = LoggerFactory.getLogger(MealCacheService.class);
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalTime POLL_START = LocalTime.of(6, 0);
-    private static final LocalTime POLL_END = LocalTime.of(10, 45);
+    private static final LocalTime POLL_END = LocalTime.of(10, 40);
 
     private final WelstoryGateway gateway;
     private final WelstoryProperties properties;
     private final ObjectMapper objectMapper;
+    private final ImagePlaceholderDetector placeholderDetector;
     private final Clock clock;
     private final Map<LocalDate, MealModels.CachedMealDay> memory = new ConcurrentHashMap<>();
     private final Map<LocalDate, Instant> lastAttempts = new ConcurrentHashMap<>();
@@ -36,14 +41,17 @@ public class MealCacheService {
     private final Map<LocalDate, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     @Autowired
-    public MealCacheService(WelstoryGateway gateway, WelstoryProperties properties, ObjectMapper objectMapper) {
-        this(gateway, properties, objectMapper, Clock.system(SEOUL));
+    public MealCacheService(WelstoryGateway gateway, WelstoryProperties properties, ObjectMapper objectMapper,
+                            ImagePlaceholderDetector placeholderDetector) {
+        this(gateway, properties, objectMapper, placeholderDetector, Clock.system(SEOUL));
     }
 
-    MealCacheService(WelstoryGateway gateway, WelstoryProperties properties, ObjectMapper objectMapper, Clock clock) {
+    MealCacheService(WelstoryGateway gateway, WelstoryProperties properties, ObjectMapper objectMapper,
+                     ImagePlaceholderDetector placeholderDetector, Clock clock) {
         this.gateway = gateway;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.placeholderDetector = placeholderDetector;
         this.clock = clock;
     }
 
@@ -113,6 +121,10 @@ public class MealCacheService {
                 .filter(asset -> asset.path().startsWith(dateDir(date).normalize()) && Files.isRegularFile(asset.path()));
     }
 
+    public boolean mealExists(LocalDate date, String mealId) {
+        return load(date).map(day -> day.meals().stream().anyMatch(meal -> meal.id().equals(mealId))).orElse(false);
+    }
+
     private MealModels.CachedMealDay cacheMeals(LocalDate date, List<MealModels.UpstreamMeal> upstream,
                                                 MealModels.CachedMealDay existing) {
         List<MealModels.CachedMeal> cached = new ArrayList<>();
@@ -125,25 +137,38 @@ public class MealCacheService {
             }
             String imageFile = previous == null ? null : previous.imageFile();
             String contentType = previous == null ? null : previous.imageContentType();
+            String imageHash = previous == null ? null : previous.imageHash();
+            boolean placeholder = previous != null && previous.placeholder();
 
-            if ((imageFile == null || !Files.isRegularFile(dateDir(date).resolve(imageFile)))
+            if ((placeholder || imageFile == null || !Files.isRegularFile(dateDir(date).resolve(imageFile)))
                     && meal.photoUrl() != null && !meal.photoUrl().isBlank()) {
                 try {
                     MealModels.DownloadedImage image = gateway.downloadImage(meal.photoUrl());
+                    ImagePlaceholderDetector.Analysis analysis = placeholderDetector.analyze(image.bytes());
                     imageFile = id + extension(image.contentType());
                     writeAtomically(dateDir(date).resolve(imageFile), image.bytes());
                     contentType = image.contentType();
+                    imageHash = analysis.hash();
+                    placeholder = analysis.placeholder();
                 } catch (Exception error) {
                     log.warn("Image cache failed for {}/{}: {}", date, id, error.getMessage());
                     imageFile = null;
                     contentType = null;
+                    imageHash = null;
+                    placeholder = false;
                 }
             }
             cached.add(new MealModels.CachedMeal(id, meal.courseName(), meal.name(), meal.description(),
-                    meal.photoUrl(), imageFile, contentType));
+                    meal.photoUrl(), imageFile, contentType, imageHash, placeholder));
         }
+        cached = markDuplicateImagesAsPlaceholders(cached);
         boolean complete = !cached.isEmpty() && cached.stream().allMatch(MealModels.CachedMeal::hasCachedImage);
-        String message = complete ? "오늘의 식단이 준비되었습니다." : "메뉴는 확인됐지만 사진을 기다리고 있어요.";
+        long placeholderCount = cached.stream().filter(MealModels.CachedMeal::placeholder).count();
+        String message = complete
+                ? "오늘의 식단이 준비되었습니다."
+                : placeholderCount > 0
+                    ? "메뉴 이미지 준비 중 화면을 감지해 실제 사진을 기다리고 있어요."
+                    : "메뉴는 확인됐지만 사진을 기다리고 있어요.";
         return new MealModels.CachedMealDay(date, properties.restaurantName(), complete,
                 List.copyOf(cached), message, Instant.now(clock));
     }
@@ -159,12 +184,46 @@ public class MealCacheService {
         }
         try {
             MealModels.CachedMealDay loaded = objectMapper.readValue(metadata.toFile(), MealModels.CachedMealDay.class);
+            loaded = upgradeLegacyCache(loaded);
             memory.put(date, loaded);
             return Optional.of(loaded);
         } catch (IOException error) {
             log.warn("Ignoring unreadable cache {}: {}", metadata, error.getMessage());
             return Optional.empty();
         }
+    }
+
+    private MealModels.CachedMealDay upgradeLegacyCache(MealModels.CachedMealDay day) {
+        boolean needsAnalysis = day.meals().stream()
+                .anyMatch(meal -> meal.hasImageFile() && (meal.imageHash() == null || meal.imageHash().isBlank()));
+        if (!needsAnalysis) return day;
+
+        List<MealModels.CachedMeal> analyzed = day.meals().stream().map(meal -> {
+            if (!meal.hasImageFile() || (meal.imageHash() != null && !meal.imageHash().isBlank())) return meal;
+            try {
+                byte[] bytes = Files.readAllBytes(dateDir(day.date()).resolve(meal.imageFile()));
+                ImagePlaceholderDetector.Analysis result = placeholderDetector.analyze(bytes);
+                return new MealModels.CachedMeal(meal.id(), meal.courseName(), meal.name(), meal.description(),
+                        meal.originalImageUrl(), meal.imageFile(), meal.imageContentType(), result.hash(), result.placeholder());
+            } catch (IOException ignored) {
+                return new MealModels.CachedMeal(meal.id(), meal.courseName(), meal.name(), meal.description(),
+                        meal.originalImageUrl(), null, null, null, false);
+            }
+        }).toList();
+        analyzed = markDuplicateImagesAsPlaceholders(analyzed);
+        boolean complete = !analyzed.isEmpty() && analyzed.stream().allMatch(MealModels.CachedMeal::hasCachedImage);
+        long placeholders = analyzed.stream().filter(MealModels.CachedMeal::placeholder).count();
+        String message = complete ? "오늘의 식단이 준비되었습니다."
+                : placeholders > 0 ? "메뉴 이미지 준비 중 화면을 감지해 실제 사진을 기다리고 있어요."
+                : "메뉴는 확인됐지만 사진을 기다리고 있어요.";
+        MealModels.CachedMealDay upgraded = new MealModels.CachedMealDay(day.date(), day.restaurantName(), complete,
+                analyzed, message, day.lastUpdatedAt());
+        try {
+            persist(upgraded);
+        } catch (IOException error) {
+            log.warn("Could not persist upgraded cache {}: {}", day.date(), error.getMessage());
+        }
+        return upgraded;
     }
 
     private void persist(MealModels.CachedMealDay day) throws IOException {
@@ -245,6 +304,56 @@ public class MealCacheService {
     private static MealModels.CachedMeal findExisting(MealModels.CachedMealDay day, String id) {
         if (day == null) return null;
         return day.meals().stream().filter(meal -> meal.id().equals(id)).findFirst().orElse(null);
+    }
+
+    private static List<MealModels.CachedMeal> markDuplicateImagesAsPlaceholders(List<MealModels.CachedMeal> meals) {
+        Map<String, Integer> hashCounts = new HashMap<>();
+        meals.stream().map(MealModels.CachedMeal::imageHash).filter(hash -> hash != null && !hash.isBlank())
+                .forEach(hash -> hashCounts.merge(hash, 1, Integer::sum));
+        return meals.stream().map(meal -> {
+            boolean duplicatePlaceholder = meal.imageHash() != null && hashCounts.getOrDefault(meal.imageHash(), 0) >= 2;
+            if (!duplicatePlaceholder || meal.placeholder()) return meal;
+            return new MealModels.CachedMeal(meal.id(), meal.courseName(), meal.name(), meal.description(),
+                    meal.originalImageUrl(), meal.imageFile(), meal.imageContentType(), meal.imageHash(), true);
+        }).toList();
+    }
+
+    public List<MealModels.CacheEntry> inspectCaches() {
+        Set<LocalDate> dates = new HashSet<>(memory.keySet());
+        Path root = properties.cacheDir().toAbsolutePath().normalize();
+        if (Files.isDirectory(root)) {
+            try (var directories = Files.list(root)) {
+                directories.filter(Files::isDirectory).map(path -> path.getFileName().toString()).forEach(name -> {
+                    try { dates.add(LocalDate.parse(name)); } catch (Exception ignored) { }
+                });
+            } catch (IOException error) {
+                log.warn("Could not inspect cache directory: {}", error.getMessage());
+            }
+        }
+        dates.add(LocalDate.now(clock));
+        return dates.stream().sorted(Comparator.reverseOrder()).map(this::cacheEntry).toList();
+    }
+
+    private MealModels.CacheEntry cacheEntry(LocalDate date) {
+        MealModels.CachedMealDay day = load(date).orElse(null);
+        List<MealModels.CachedMeal> meals = day == null ? List.of() : day.meals();
+        int ready = (int) meals.stream().filter(MealModels.CachedMeal::hasCachedImage).count();
+        int placeholders = (int) meals.stream().filter(MealModels.CachedMeal::placeholder).count();
+        int missing = meals.size() - ready - placeholders;
+        return new MealModels.CacheEntry(date, day != null && day.complete(), meals.size(), ready, placeholders,
+                Math.max(0, missing), directorySize(dateDir(date)), day == null ? null : day.lastUpdatedAt(),
+                lastAttempts.get(date), lastErrors.get(date), day == null ? "캐시 없음" : day.message());
+    }
+
+    private static long directorySize(Path directory) {
+        if (!Files.isDirectory(directory)) return 0;
+        try (var paths = Files.walk(directory)) {
+            return paths.filter(Files::isRegularFile).mapToLong(path -> {
+                try { return Files.size(path); } catch (IOException ignored) { return 0; }
+            }).sum();
+        } catch (IOException ignored) {
+            return 0;
+        }
     }
 
     private static String extension(String contentType) {

@@ -34,6 +34,10 @@ welstory:
   off-hours-retry-interval: ${WELSTORY_OFF_HOURS_RETRY_INTERVAL:30m}
   holidays: ${WELSTORY_HOLIDAYS:}
 
+admin:
+  username: ${ADMIN_USERNAME:}
+  password: ${ADMIN_PASSWORD:}
+
 management:
   endpoints:
     web:

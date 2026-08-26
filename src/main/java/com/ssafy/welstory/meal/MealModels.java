@@ -45,10 +45,17 @@ public final class MealModels {
             String description,
             String originalImageUrl,
             String imageFile,
-            String imageContentType
+            String imageContentType,
+            String imageHash,
+            boolean placeholder
     ) {
         @JsonIgnore
         public boolean hasCachedImage() {
+            return hasImageFile() && !placeholder;
+        }
+
+        @JsonIgnore
+        public boolean hasImageFile() {
             return imageFile != null && !imageFile.isBlank();
         }
     }
@@ -63,4 +70,18 @@ public final class MealModels {
     ) {}
 
     public record DownloadedImage(byte[] bytes, String contentType) {}
+
+    public record CacheEntry(
+            LocalDate date,
+            boolean complete,
+            int menuCount,
+            int readyImageCount,
+            int placeholderImageCount,
+            int missingImageCount,
+            long diskBytes,
+            Instant lastUpdatedAt,
+            Instant lastAttemptAt,
+            String lastError,
+            String message
+    ) {}
 }

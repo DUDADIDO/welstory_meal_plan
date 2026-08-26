@@ -19,6 +19,15 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+`.env`에는 웰스토리 계정과 운영 콘솔 계정을 함께 설정합니다.
+
+```dotenv
+WELSTORY_USERNAME=웰스토리_아이디
+WELSTORY_PASSWORD=웰스토리_비밀번호
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=충분히_긴_랜덤_비밀번호
+```
+
 기본 접속 주소는 `http://localhost:8080`입니다. 캐시는 `welstory-cache` Docker 볼륨에 보존됩니다. 홈 서버에서 HTTPS를 쓴다면 Caddy, Nginx Proxy Manager 같은 리버스 프록시를 이 컨테이너의 8080 포트 앞에 두면 됩니다.
 
 상태 확인:
@@ -54,6 +63,8 @@ Vite 개발 서버는 `/api` 요청을 `localhost:8080`으로 프록시합니다
 | `WELSTORY_MEAL_TYPE` | `2` | 중식 코드 |
 | `WELSTORY_CACHE_DIR` | `./data/cache` | 영속 캐시 경로 |
 | `WELSTORY_HOLIDAYS` | 없음 | `YYYY-MM-DD` 쉼표 구분 휴무일 |
+| `ADMIN_USERNAME` | 없음 | `/admin` 운영 콘솔 ID |
+| `ADMIN_PASSWORD` | 없음 | `/admin` 운영 콘솔 비밀번호 |
 | `APP_PORT` | `8080` | Docker 호스트 공개 포트 |
 
 ## API
@@ -61,4 +72,10 @@ Vite 개발 서버는 `/api` 요청을 `localhost:8080`으로 프록시합니다
 - `GET /api/meals` — 한국 시간 기준 오늘의 식단
 - `GET /api/meals?date=2026-08-26` — 지정 날짜 식단
 - `GET /api/meals/{date}/images/{mealId}` — 서버에 캐시된 식단 이미지
+- `GET /api/ratings?date=YYYY-MM-DD&clientId=...` — 날짜별 별점 조회
+- `POST /api/ratings` — 식단 별점 저장
+- `GET /api/admin/status` — 캐시·수집·별점 운영 상태(인증 필요)
+- `POST /api/admin/refresh` — 오늘 식단 즉시 재확인(인증 필요)
 - `GET /actuator/health` — 컨테이너 상태
+
+운영 콘솔은 `/admin`에서 접근합니다. HTTP Basic 인증을 사용하므로 홈 서버 외부에 공개할 때는 반드시 HTTPS 리버스 프록시 뒤에서 운영해야 합니다.
