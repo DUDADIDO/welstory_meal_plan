@@ -27,6 +27,8 @@ import java.util.UUID;
 public class WelstoryApiClient implements WelstoryGateway {
     private static final DateTimeFormatter API_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final List<String> EXCLUDED_KEYWORDS = List.of("코인", "품목", "음료", "베이커리");
+    private static final int MAX_MEAL_RESPONSE_ATTEMPTS = 4;
+    private static final long MEAL_RESPONSE_RETRY_DELAY_MILLIS = 250L;
 
     private final RestClient api;
     private final RestClient images;
@@ -68,6 +70,27 @@ public class WelstoryApiClient implements WelstoryGateway {
     }
 
     private List<MealModels.UpstreamMeal> requestLunch(LocalDate date) {
+        IllegalStateException lastError = null;
+        for (int attempt = 1; attempt <= MAX_MEAL_RESPONSE_ATTEMPTS; attempt++) {
+            try {
+                return requestLunchOnce(date);
+            } catch (IllegalStateException error) {
+                lastError = error;
+                if (attempt == MAX_MEAL_RESPONSE_ATTEMPTS) {
+                    throw error;
+                }
+                if (attempt == 3) {
+                    // Welstory occasionally returns an empty/non-menu envelope for an expired session.
+                    accessToken = null;
+                    ensureLoggedIn();
+                }
+                waitBeforeMealRetry(attempt);
+            }
+        }
+        throw lastError;
+    }
+
+    private List<MealModels.UpstreamMeal> requestLunchOnce(LocalDate date) {
         byte[] responseBody = api.get()
                 .uri(uriBuilder -> uriBuilder.path("/api/meal")
                         .queryParam("menuDt", API_DATE.format(date))
@@ -80,9 +103,11 @@ public class WelstoryApiClient implements WelstoryGateway {
                 .body(byte[].class);
         JsonNode body = parseJson(responseBody);
 
-        JsonNode mealList = body == null ? null : body.path("data").path("mealList");
+        JsonNode mealList = findMealList(body);
         if (mealList == null || !mealList.isArray()) {
-            throw new IllegalStateException("웰스토리 식단 응답 형식이 올바르지 않습니다.");
+            throw new IllegalStateException(
+                    "웰스토리 식단 응답 형식이 올바르지 않습니다. (" + responseShape(body) + ")"
+            );
         }
 
         List<MealModels.UpstreamMeal> meals = new ArrayList<>();
@@ -105,6 +130,53 @@ public class WelstoryApiClient implements WelstoryGateway {
             }
         }
         return meals;
+    }
+
+    private static JsonNode findMealList(JsonNode body) {
+        if (body == null || body.isNull()) {
+            return null;
+        }
+        if (body.isArray()) {
+            return body;
+        }
+
+        for (String wrapper : new String[]{"data", "result", "resultData", "body", "content"}) {
+            JsonNode candidate = body.path(wrapper);
+            if (candidate.isArray()) {
+                return candidate;
+            }
+            JsonNode nestedMealList = candidate.path("mealList");
+            if (nestedMealList.isArray()) {
+                return nestedMealList;
+            }
+        }
+
+        JsonNode topLevelMealList = body.path("mealList");
+        return topLevelMealList.isArray() ? topLevelMealList : null;
+    }
+
+    private static String responseShape(JsonNode body) {
+        if (body == null || body.isNull()) {
+            return "body=null";
+        }
+        if (body.isArray()) {
+            return "body=array";
+        }
+        if (body.isObject()) {
+            List<String> fields = new ArrayList<>();
+            body.fieldNames().forEachRemaining(fields::add);
+            return "keys=" + fields;
+        }
+        return "body=" + body.getNodeType();
+    }
+
+    private static void waitBeforeMealRetry(int attempt) {
+        try {
+            Thread.sleep(MEAL_RESPONSE_RETRY_DELAY_MILLIS * attempt);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("웰스토리 식단 재시도 중 인터럽트가 발생했습니다.", interrupted);
+        }
     }
 
     @Override

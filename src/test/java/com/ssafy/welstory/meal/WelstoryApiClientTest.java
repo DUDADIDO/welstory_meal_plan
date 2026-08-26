@@ -64,4 +64,46 @@ class WelstoryApiClientTest {
         assertThat(meals.getFirst().calorie()).isEqualTo("1,250 kcal");
         server.verify();
     }
+
+    @Test
+    void retriesTransientNonMenuEnvelope() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        WelstoryProperties properties = new WelstoryProperties(
+                "https://welstory.test",
+                "user",
+                "password",
+                "REST000595",
+                "삼성전기 부산사업장",
+                "2",
+                null,
+                Duration.ofMinutes(5),
+                Duration.ofMinutes(30)
+        );
+        WelstoryApiClient client = new WelstoryApiClient(builder, properties, new ObjectMapper());
+
+        server.expect(requestTo("https://welstory.test/login"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.OK)
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .body("{}"));
+        String mealUrl = "https://welstory.test/api/meal?menuDt=20260826&menuMealType=2&restaurantCode=REST000595";
+        server.expect(requestTo(mealUrl))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.OK)
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .body("{}"));
+        server.expect(requestTo(mealUrl))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.OK)
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .body("{\"mealList\":[{\"menuName\":\"메뉴\",\"courseTxt\":\"코스\"}]}"));
+
+        var meals = client.fetchLunch(LocalDate.of(2026, 8, 26));
+
+        assertThat(meals).hasSize(1);
+        assertThat(meals.getFirst().name()).isEqualTo("메뉴");
+        server.verify();
+    }
 }
