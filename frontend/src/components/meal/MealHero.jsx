@@ -1,7 +1,10 @@
 import { formatDate, formatShortDate } from '../../utils/date'
+import SpecialMealCelebration from './SpecialMealCelebration'
+import { isSpecialMealDay } from '../../utils/meal'
 
 export default function MealHero({ data, date, today }) {
   const isToday = date === today
+  const isSpecial = isToday && isSpecialMealDay(data?.meals)
 
   return (
     <header
@@ -12,9 +15,16 @@ export default function MealHero({ data, date, today }) {
         {isToday ? "TODAY'S LUNCH" : 'LUNCH ARCHIVE'}
       </p>
 
-      <h1 className="text-balance text-[clamp(2.35rem,7vw,5.5rem)] font-bold leading-[0.98] tracking-[-0.055em]">
+      <h1
+        key={`${date}-${isSpecial}`}
+        className={`text-balance text-[clamp(2.35rem,7vw,5.5rem)] font-bold leading-[0.98] tracking-[-0.055em] ${isSpecial ? 'special-meal-heading' : ''}`}
+      >
         {isToday
-          ? '오늘, 뭐 먹을까요?'
+          ? isSpecial
+            ? (
+              <>오늘 <span className="special-meal-word-wrap"><span className="special-meal-word">특식</span><SpecialMealCelebration /></span> 뭐 먹을까요?</>
+            )
+            : '오늘, 뭐 먹을까요?'
           : `${formatShortDate(date)}의 식단`}
       </h1>
 
