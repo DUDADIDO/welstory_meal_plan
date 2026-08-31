@@ -223,11 +223,14 @@ public class MealCacheService {
 
             /*
              * 미래 날짜 메뉴가 이미 확보된 경우.
-             * 이미지는 아직 받지 않는다.
+             * 관리자 강제 캐시로 이미지까지 확보됐다면
+             * 준비 완료 상태로 공개한다.
              */
             return response(
                     cached,
-                    MealModels.Status.WAITING,
+                    cached.complete()
+                            ? completedStatus(cached)
+                            : MealModels.Status.WAITING,
                     null
             );
         }

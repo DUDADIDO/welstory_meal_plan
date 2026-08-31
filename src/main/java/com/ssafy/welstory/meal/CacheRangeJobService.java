@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,9 +19,6 @@ public class CacheRangeJobService {
 
     private static final Duration REQUEST_INTERVAL =
             Duration.ofSeconds(30);
-
-    private static final ZoneId SEOUL =
-            ZoneId.of("Asia/Seoul");
 
     private final MealCacheService cache;
 
@@ -437,16 +433,6 @@ public class CacheRangeJobService {
             );
         }
 
-        if (
-                endDate.isAfter(
-                        LocalDate.now(SEOUL)
-                )
-        ) {
-
-            throw new IllegalArgumentException(
-                    "미래 날짜는 캐시할 수 없습니다."
-            );
-        }
     }
 
     @PreDestroy

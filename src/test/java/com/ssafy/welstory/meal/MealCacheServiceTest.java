@@ -185,6 +185,40 @@ class MealCacheServiceTest {
         assertThat(fetches).hasValue(0);
     }
 
+    @Test
+    void futureDateWithAdminCachedImagesIsReportedReady() {
+        LocalDate futureDate = LocalDate.of(2026, 8, 28);
+        WelstoryGateway gateway = new WelstoryGateway() {
+            @Override
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
+                return List.of(new MealModels.UpstreamMeal(
+                        "한식",
+                        "미리 준비된 메뉴",
+                        null,
+                        "https://image.test/future-menu.jpg"
+                ));
+            }
+
+            @Override
+            public MealModels.DownloadedImage downloadImage(String url) {
+                return new MealModels.DownloadedImage(imageBytes(false), "image/png");
+            }
+        };
+        WelstoryProperties properties = new WelstoryProperties(null, "user", "password", null, null,
+                null, tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Clock clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        MealCacheService service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+
+        MealCacheService.RefreshResult refresh = service.refreshWithImages(futureDate);
+        MealModels.MealDayResponse response = service.get(futureDate);
+
+        assertThat(refresh.state()).isEqualTo(MealCacheService.RefreshState.COMPLETE);
+        assertThat(response.status()).isEqualTo(MealModels.Status.READY);
+        assertThat(response.meals()).hasSize(1);
+        assertThat(response.meals().getFirst().imageUrl()).startsWith("/api/meals/2026-08-28/images/meal-01?v=");
+    }
+
    @Test
     void menuRefreshBeforePhotoWindowDoesNotDownloadImages() {
         LocalDate date = LocalDate.of(2026, 8, 26);

@@ -25,11 +25,11 @@ export default function CacheRangeJob({ job, busy, onStart, onCancel }) {
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div>
           <h2 className="text-lg font-bold">날짜 범위 캐시</h2>
-          <p className="mt-1 text-xs leading-5 text-muted">미캐시 날짜를 순차 처리하며 실제 웰스토리 호출 사이에는 30초 간격을 둡니다.</p>
+          <p className="mt-1 text-xs leading-5 text-muted">관리자가 지정한 과거·미래 날짜를 순차 처리하며 실제 웰스토리 호출 사이에는 30초 간격을 둡니다.</p>
         </div>
         <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-          <DateField label="시작일" value={startDate} max={today} onChange={setStartDate} disabled={active} />
-          <DateField label="종료일" value={endDate} min={startDate} max={today} onChange={setEndDate} disabled={active} />
+          <DateField label="시작일" value={startDate} onChange={setStartDate} disabled={active} />
+          <DateField label="종료일" value={endDate} min={startDate} onChange={setEndDate} disabled={active} />
           <label className="flex h-10 items-center gap-2 rounded-xl bg-[var(--theme-subtle)] px-3 text-xs font-semibold text-muted">
             <input type="checkbox" checked={forceExisting} onChange={(event) => setForceExisting(event.target.checked)} disabled={active} />
             완료 캐시도 다시 확인
