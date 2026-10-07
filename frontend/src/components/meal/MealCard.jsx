@@ -1,5 +1,6 @@
 import MarkIcon from '../../assets/icons/MarkIcon'
 import StarRating from './StarRating'
+import { formatShortDate } from '../../utils/date'
 
 export default function MealCard({
   meal,
@@ -9,11 +10,15 @@ export default function MealCard({
   onRate,
   onOpen,
   onChat,
+  referencePhoto,
 }) {
+  const imageUrl = meal.imageUrl || referencePhoto?.imageUrl
+  const isReference = !meal.imageUrl && Boolean(referencePhoto?.imageUrl)
   return (
     <article
       className="
         group
+        flex h-full flex-col
         overflow-hidden
         rounded-[1.75rem]
         bg-surface
@@ -24,17 +29,17 @@ export default function MealCard({
         hover:shadow-apple
       "
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-soft">
-        {meal.imageUrl ? (
+      <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-soft">
+        {imageUrl ? (
           <button
             type="button"
             onClick={onOpen}
-            aria-label={`${meal.name} 사진 크게 보기`}
+            aria-label={`${meal.name}${isReference ? ' 지난 메뉴 참고' : ''} 사진 크게 보기`}
             className="block size-full overflow-hidden text-left"
           >
             <img
-              src={meal.imageUrl}
-              alt={`${meal.name} 식단 사진`}
+              src={imageUrl}
+              alt={`${meal.name}${isReference ? ` ${referencePhoto.date} 참고` : ' 식단'} 사진`}
               loading={index < 3 ? 'eager' : 'lazy'}
               decoding="async"
               className="size-full object-cover transition duration-500 group-hover:scale-[1.025]"
@@ -52,9 +57,12 @@ export default function MealCard({
             </span>
           </div>
         )}
+        {isReference && <div className="pointer-events-none absolute bottom-3 left-3 right-3">
+          <span className="inline-flex rounded-full bg-black/65 px-3 py-1.5 text-[0.65rem] font-semibold text-white backdrop-blur-sm">{formatShortDate(referencePhoto.date)} 참고 사진 · 해당 날짜 사진 준비 중</span>
+        </div>}
       </div>
 
-      <div className="p-5 sm:p-6">
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-[0.68rem] font-bold tracking-[0.13em] text-apple-blue">
             {meal.courseName || '오늘의 메뉴'}
@@ -76,12 +84,12 @@ export default function MealCard({
         )}
 
         {meal.calorie && (
-          <p className="mt-3 inline-flex items-center rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600">
+          <p className="mt-3 inline-flex self-start items-center rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600">
             총 칼로리 · {meal.calorie}
           </p>
         )}
 
-        <div className="mt-5">
+        <div className="mt-auto pt-5">
           <StarRating
             mealName={meal.name}
             rating={rating}

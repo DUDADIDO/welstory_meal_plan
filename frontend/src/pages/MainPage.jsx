@@ -7,8 +7,10 @@ import MealCard from '../components/meal/MealCard'
 import MealHero from '../components/meal/MealHero'
 import MealLightbox from '../components/meal/MealLightbox'
 import MealChat from '../components/meal/MealChat'
+import FloatingMealVote from '../components/meal/FloatingMealVote'
 import { useMeals } from '../hooks/useMeals'
 import { useRatings } from '../hooks/useRatings'
+import { useReferencePhotos } from '../hooks/useReferencePhotos'
 import { formatDate, todayInSeoul } from '../utils/date'
 import StatusBadge from '../components/meal/StatusBadge'
 import { useVisitorTracking } from '../hooks/useVisitorTracking'
@@ -22,6 +24,7 @@ export default function MainPage() {
   const { status, data, error, reload } = useMeals(date)
   const { ratings, rate, submitting } = useRatings(date)
   const hasMeals = data?.meals?.length > 0
+  const references = useReferencePhotos(date, data?.date === date ? data?.meals : [])
   const closeLightbox = useCallback(() => setOpenMeal(null), [])
   const closeChat = useCallback(() => setChatRoom(null), [])
 
@@ -30,24 +33,29 @@ export default function MainPage() {
       <MealNavigation date={date} today={today} onChange={setDate} />
       <main>
         <MealHero data={data} date={date} today={today} />
-        {status === 'loading' && <LoadingGrid />}
+        {status === 'loading' && !hasMeals && <LoadingGrid />}
         {hasMeals && (
           <section aria-label={`${formatDate(date)} 식단`} className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
-            <div className="mb-5 flex items-end justify-between gap-4">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <p className="text-xs font-bold tracking-[0.14em] text-muted">
                 오늘의 선택
               </p>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={data.status} />
                 <span className="text-xs text-muted">
                   · {data.meals.length}가지 메뉴
                 </span>
               </div>
             </div>
+            {error && <p role="alert" className="mb-4 text-xs text-red-500">사진을 다시 확인하지 못했습니다. 잠시 후 자동으로 다시 확인합니다.</p>}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {data.meals.map((meal, index) => (
-                <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={submitting === meal.id} onRate={(stars) => rate(meal.id, stars)} onOpen={() => setOpenMeal(meal)} onChat={() => setChatRoom({ date, meal })} />
+                <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={submitting === meal.id}
+                  onRate={(stars) => rate(meal.id, stars)} referencePhoto={references[meal.id]}
+                  onOpen={() => setOpenMeal({ ...meal, imageUrl: meal.imageUrl || references[meal.id]?.imageUrl,
+                    photoDate: meal.imageUrl ? null : references[meal.id]?.date, isReference: !meal.imageUrl })}
+                  onChat={() => setChatRoom({ date, meal })} />
               ))}
             </div>
           </section>
@@ -55,6 +63,8 @@ export default function MainPage() {
         {!hasMeals && status !== 'loading' && <EmptyState data={data} error={error} onRetry={reload} />}
       </main>
       <SiteFooter data={data} />
+      {!openMeal && !chatRoom && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
+        canVote={date === today && data?.date === date && Boolean(hasMeals)} />}
       <MealLightbox meal={openMeal} onClose={closeLightbox} />
       {chatRoom && <MealChat key={`${chatRoom.date}:${chatRoom.meal.id}`} date={chatRoom.date} meal={chatRoom.meal} onClose={closeChat} />}
     </>

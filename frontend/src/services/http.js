@@ -26,11 +26,19 @@ async function request(url, options = {}) {
 }
 
 export const mealApi = {
-  getByDate: (date, signal) => request(`/api/meals?date=${date}`, { signal }),
+  getByDate: (date, signal) => request(`/api/meals?date=${date}`, { signal, cache: 'no-store' }),
+}
+
+export const menuHistoryApi = {
+  references: (date, signal) => request(`/api/menu-history/references?date=${date}`, { signal, cache: 'no-store' }),
 }
 
 export const chatApi = {
-  identity: () => request('/api/chat/identity', { cache: 'no-store', credentials: 'same-origin' }),
+  identity: (browserKey) => request('/api/chat/identity', {
+    method: 'POST', cache: 'no-store', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Chat-Request': '1' },
+    body: JSON.stringify({ browserKey }),
+  }),
   messages: (date, mealId, signal, before) => request(
     `/api/chat/messages?${new URLSearchParams({ date, mealId, ...(before ? { before } : {}) })}`,
     { signal, cache: 'no-store', credentials: 'same-origin' },
@@ -41,6 +49,15 @@ export const chatApi = {
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-Chat-Request': '1' },
     body: JSON.stringify(payload),
+  }),
+}
+
+export const mealChoiceApi = {
+  get: (date, signal) => request(`/api/chat/meal-votes?date=${date}`, { signal, cache: 'no-store', credentials: 'same-origin' }),
+  choose: (date, mealId, signal) => request('/api/chat/meal-votes', {
+    method: 'POST', signal, credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Chat-Request': '1' },
+    body: JSON.stringify({ date, mealId }),
   }),
 }
 

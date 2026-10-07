@@ -37,6 +37,20 @@ public class ChatController {
     public ResponseEntity<ChatService.Quota> identity(
             @CookieValue(name = COOKIE, required = false) String token, HttpServletRequest request) {
         ChatService.Identity identity = chat.identity(token);
+        return identityResponse(identity, request);
+    }
+
+    @PostMapping("/identity")
+    public ResponseEntity<ChatService.Quota> browserIdentity(
+            @Valid @RequestBody BrowserIdentityRequest body,
+            @CookieValue(name = COOKIE, required = false) String token,
+            @RequestHeader(name = "X-Chat-Request", defaultValue = "") String header,
+            HttpServletRequest request) {
+        if (!"1".equals(header)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "잘못된 사용자 확인 요청입니다.");
+        return identityResponse(chat.browserIdentity(token, body.browserKey()), request);
+    }
+
+    private ResponseEntity<ChatService.Quota> identityResponse(ChatService.Identity identity, HttpServletRequest request) {
         ResponseCookie cookie = ResponseCookie.from(COOKIE, identity.token()).httpOnly(true)
                 .secure(request.isSecure()).sameSite("Strict").path("/api/chat")
                 .maxAge(Duration.ofDays(365)).build();
@@ -86,4 +100,6 @@ public class ChatController {
     public record SendRequest(@NotNull LocalDate date,
                               @NotNull @Pattern(regexp = "meal-[0-9]{2}") String mealId,
                               @NotBlank @Size(max = 500) String content) {}
+
+    public record BrowserIdentityRequest(@NotNull @Pattern(regexp = "[A-Za-z0-9_-]{43}") String browserKey) {}
 }

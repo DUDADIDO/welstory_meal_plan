@@ -10,6 +10,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -57,6 +61,30 @@ public class ChatService {
             }
         }
         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "익명 이름을 발급하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+
+    @Transactional
+    public Identity browserIdentity(String token, String browserKey) {
+        if (browserKey == null || !browserKey.matches("[A-Za-z0-9_-]{43}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 브라우저 식별키입니다.");
+        }
+        String hash;
+        try {
+            hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(browserKey.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException(error);
+        }
+        // Serialize creation across tabs and instances without retaining the recovery secret.
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> {}, hash);
+        var existing = jdbc.query("SELECT user_token FROM anonymous_browser_keys WHERE key_hash = ?",
+                (rs, row) -> rs.getString(1), hash);
+        if (!existing.isEmpty()) return identity(existing.getFirst());
+        Identity user = identity(token);
+        jdbc.update("INSERT INTO anonymous_browser_keys (key_hash, user_token, created_at) VALUES (?, ?, ?)",
+                hash, user.token(), Timestamp.from(clock.instant()));
+        return user;
     }
 
     @Transactional(readOnly = true)

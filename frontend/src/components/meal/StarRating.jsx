@@ -1,7 +1,7 @@
 export default function StarRating({ mealName, rating, disabled, onRate, action }) {
   const selected = rating?.myRating || 0
   return (
-    <div className="flex items-center gap-3 border-t border-[var(--theme-border)] pt-4">
+    <div className="flex h-14 items-center gap-3 border-t border-[var(--theme-border)] pt-4">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
         <div className="flex" role="group" aria-label={`${mealName} 별점`}>
           {[1, 2, 3, 4, 5].map((star) => (

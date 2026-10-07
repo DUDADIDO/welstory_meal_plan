@@ -44,8 +44,9 @@ export default function MealLightbox({ meal, onClose }) {
         <img
           src={meal.imageUrl}
           alt={`${meal.name} 식단 확대 사진`}
-          className="max-h-[88dvh] w-full object-contain"
+          className="max-h-[82dvh] w-full object-contain"
         />
+        {meal.photoDate && <figcaption className="bg-black/70 px-5 py-3 text-center text-xs text-white">{meal.photoDate} 식단 사진{meal.isReference && ' · 같은 메뉴의 과거 참고 사진입니다'}</figcaption>}
       </figure>
     </div>
   )

@@ -32,7 +32,9 @@ public class MealController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         LocalDate target = date == null ? LocalDate.now(SEOUL) : date;
         MealModels.MealDayResponse response = cache.get(target);
-        CacheControl policy = response.status() == MealModels.Status.READY
+        CacheControl policy = !target.isBefore(LocalDate.now(SEOUL))
+                ? CacheControl.noStore()
+                : response.status() == MealModels.Status.READY
                 ? CacheControl.maxAge(Duration.ofHours(12)).cachePublic().immutable()
                 : CacheControl.noCache();
         return ResponseEntity.ok().cacheControl(policy).body(response);

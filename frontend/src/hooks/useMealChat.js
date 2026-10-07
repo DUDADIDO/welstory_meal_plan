@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatApi } from '../services/http'
-
-// Share initialization during React StrictMode remounts so only one identity is issued.
-let identityRequest
-function identify() {
-  if (!identityRequest) {
-    identityRequest = chatApi.identity().finally(() => { identityRequest = null })
-  }
-  return identityRequest
-}
+import { ensureAnonymousUser } from '../services/anonymous'
 
 function mergeMessages(previous, incoming) {
   const messages = new Map(previous.map((message) => [message.id, message]))
@@ -54,7 +46,7 @@ export function useMealChat(date, mealId) {
       window.clearTimeout(timer)
       try {
         if (!identified) {
-          await identify()
+          await ensureAnonymousUser()
           identified = true
         }
         if (controller.signal.aborted) return

@@ -1,4 +1,5 @@
 import MarkIcon from '../../assets/icons/MarkIcon'
+import KofiLink from './KofiLink'
 import { formatTime } from '../../utils/date'
 
 export default function SiteFooter({ data }) {
@@ -6,7 +7,8 @@ export default function SiteFooter({ data }) {
 
   return (
     <footer className="border-t border-[var(--theme-border)] bg-surface">
-      <div className="mx-auto max-w-7xl px-5 py-10 text-xs leading-5 text-muted sm:px-8">
+      <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-5 py-10 text-xs leading-5 text-muted sm:gap-8 sm:px-8">
+        <div className="min-w-0">
         <div className="mb-3 flex items-center gap-2 text-ink">
           <MarkIcon className="size-5" />
           <strong>오늘 뭐먹지</strong>
@@ -21,6 +23,8 @@ export default function SiteFooter({ data }) {
           {' · '}
           이미지와 메뉴 정보의 권리는 제공처에 있습니다.
         </p>
+        </div>
+        <div className="shrink-0"><KofiLink /></div>
       </div>
     </footer>
   )
