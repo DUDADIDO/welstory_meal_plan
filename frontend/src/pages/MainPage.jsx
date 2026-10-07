@@ -6,6 +6,7 @@ import LoadingGrid from '../components/meal/LoadingGrid'
 import MealCard from '../components/meal/MealCard'
 import MealHero from '../components/meal/MealHero'
 import MealLightbox from '../components/meal/MealLightbox'
+import MealChat from '../components/meal/MealChat'
 import { useMeals } from '../hooks/useMeals'
 import { useRatings } from '../hooks/useRatings'
 import { formatDate, todayInSeoul } from '../utils/date'
@@ -17,10 +18,12 @@ export default function MainPage() {
   const today = useMemo(todayInSeoul, [])
   const [date, setDate] = useState(today)
   const [openMeal, setOpenMeal] = useState(null)
+  const [chatRoom, setChatRoom] = useState(null)
   const { status, data, error, reload } = useMeals(date)
   const { ratings, rate, submitting } = useRatings(date)
   const hasMeals = data?.meals?.length > 0
   const closeLightbox = useCallback(() => setOpenMeal(null), [])
+  const closeChat = useCallback(() => setChatRoom(null), [])
 
   return (
     <>
@@ -44,7 +47,7 @@ export default function MainPage() {
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {data.meals.map((meal, index) => (
-                <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={submitting === meal.id} onRate={(stars) => rate(meal.id, stars)} onOpen={() => setOpenMeal(meal)} />
+                <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={submitting === meal.id} onRate={(stars) => rate(meal.id, stars)} onOpen={() => setOpenMeal(meal)} onChat={() => setChatRoom({ date, meal })} />
               ))}
             </div>
           </section>
@@ -53,6 +56,7 @@ export default function MainPage() {
       </main>
       <SiteFooter data={data} />
       <MealLightbox meal={openMeal} onClose={closeLightbox} />
+      {chatRoom && <MealChat key={`${chatRoom.date}:${chatRoom.meal.id}`} date={chatRoom.date} meal={chatRoom.meal} onClose={closeChat} />}
     </>
   )
 }

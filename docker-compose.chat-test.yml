@@ -1,0 +1,28 @@
+# Disposable database for chat integration tests. Does not use the production DB or volumes.
+# docker compose -p welstory-chat-test -f docker-compose.chat-test.yml up --build --abort-on-container-exit --exit-code-from tests
+# docker compose -p welstory-chat-test -f docker-compose.chat-test.yml down --volumes
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: chat_test
+      POSTGRES_USER: chat_test
+      POSTGRES_PASSWORD: chat_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat_test -d chat_test"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+  tests:
+    image: welstory-chat-test-build
+    build:
+      context: .
+      target: backend-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CHAT_TEST_JDBC_URL: jdbc:postgresql://postgres:5432/chat_test
+    command: ["mvn", "-B", "-Dtest=ChatServicePostgresTest,ChatApiIntegrationTest", "test"]

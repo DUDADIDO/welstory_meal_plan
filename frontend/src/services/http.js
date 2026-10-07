@@ -6,13 +6,17 @@ async function request(url, options = {}) {
 
   if (!response.ok) {
     let detail
+    let errorBody
     try {
-      const errorBody = await response.json()
+      errorBody = await response.json()
       detail = errorBody.detail || errorBody.message
     } catch {
       detail = null
     }
-    throw new Error(detail || `요청을 처리하지 못했습니다. (${response.status})`)
+    const error = new Error(detail || `요청을 처리하지 못했습니다. (${response.status})`)
+    error.status = response.status
+    error.data = errorBody
+    throw error
   }
   if (response.status === 204) {
     return null
@@ -23,6 +27,21 @@ async function request(url, options = {}) {
 
 export const mealApi = {
   getByDate: (date, signal) => request(`/api/meals?date=${date}`, { signal }),
+}
+
+export const chatApi = {
+  identity: () => request('/api/chat/identity', { cache: 'no-store', credentials: 'same-origin' }),
+  messages: (date, mealId, signal, before) => request(
+    `/api/chat/messages?${new URLSearchParams({ date, mealId, ...(before ? { before } : {}) })}`,
+    { signal, cache: 'no-store', credentials: 'same-origin' },
+  ),
+  send: (payload, signal) => request('/api/chat/messages', {
+    method: 'POST',
+    signal,
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Chat-Request': '1' },
+    body: JSON.stringify(payload),
+  }),
 }
 
 export const ratingApi = {

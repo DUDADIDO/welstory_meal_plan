@@ -12,7 +12,22 @@
 - 메뉴 이미지를 모두 내려받으면 그 날짜를 `READY`로 봉인합니다. 이후에는 서버 재시작 뒤에도 웰스토리를 다시 호출하지 않고 Docker 볼륨의 JSON과 이미지만 제공합니다.
 - 완성된 API 응답은 12시간, 이미지는 30일 동안 브라우저/리버스 프록시에서 캐시할 수 있습니다.
 - 주말과 휴일도 웰스토리 응답을 기준으로 처리하며, 확정된 식단 없음 결과도 캐시합니다.
-- 식단 상태·별점·방문자 통계의 메타데이터는 PostgreSQL에 저장하고, 식단 이미지 파일만 Docker 캐시 볼륨에 저장합니다.
+- 식단 상태·별점·방문자 통계·익명 채팅은 PostgreSQL에 저장하고, 식단 이미지 파일만 Docker 캐시 볼륨에 저장합니다.
+
+## 식단별 익명 채팅
+
+각 식단 카드의 **별점 옆 채팅 아이콘**으로 해당 날짜·식단 전용 채팅방에 참여합니다. 음식 이름 200개에서 서로 다른 두 개를 골라 `김밥·푸딩` 같은 이름을 부여하며, 39,800개의 조합 중 사용자 간 중복 없이 배정합니다. 익명 이름은 모든 방에서 동일하고 서버 재시작 뒤에도 유지됩니다.
+
+서버가 발급한 HttpOnly 쿠키로 브라우저를 구분합니다. 로그인 계정이 없으므로 다른 브라우저·시크릿 창·쿠키 삭제 후에는 다른 사용자로 취급됩니다. 채팅에는 쿠키의 사용자 식별값을 공개하지 않습니다.
+
+전송은 모든 방을 합산해 사용자당 **5초에 1개**, **한국 시간 기준 하루 50개**까지 가능합니다. 자정에 일일 횟수가 초기화되며, 방이나 탭을 바꾸어도 같은 쿠키의 제한은 공유합니다. DB 트랜잭션과 사용자 행 잠금으로 동시 전송을 검사하고, 제한에 걸리면 `429`와 `Retry-After`를 반환합니다. 메시지는 최대 500자이며 채팅방은 3초마다 갱신합니다. 최근 100개부터 보여주고 **이전 대화 보기**로 기록을 더 조회합니다.
+
+채팅의 실제 PostgreSQL 통합 테스트는 운영 데이터와 분리된 임시 DB에서 실행합니다. 익명 이름 중복, 식단·사용자 구분, 정확한 5초 경계, 50개 제한, 자정 초기화, 동시 전송, 이전 기록 조회를 검증합니다.
+
+```bash
+docker compose -p welstory-chat-test -f docker-compose.chat-test.yml up --build --abort-on-container-exit --exit-code-from tests
+docker compose -p welstory-chat-test -f docker-compose.chat-test.yml down --volumes
+```
 
 ## Docker로 실행
 
@@ -82,6 +97,9 @@ Vite 개발 서버는 `/api` 요청을 `localhost:8080`으로 프록시합니다
 - `GET /api/meals/{date}/images/{mealId}` — 서버에 캐시된 식단 이미지
 - `GET /api/ratings?date=YYYY-MM-DD&clientId=...` — 날짜별 별점 조회
 - `POST /api/ratings` — 식단 별점 저장
+- `GET /api/chat/identity` — 익명 사용자 발급·조회 및 남은 전송 횟수
+- `GET /api/chat/messages?date=YYYY-MM-DD&mealId=meal-01` — 식단별 채팅 조회 (`before=메시지ID`로 이전 기록 조회)
+- `POST /api/chat/messages` — 채팅 전송 (본문: `date`, `mealId`, `content`; 헤더: `X-Chat-Request: 1`; 익명 쿠키 필요)
 - `GET /api/admin/status` — 캐시·수집·별점 운영 상태(인증 필요)
 - `POST /api/admin/refresh?date=YYYY-MM-DD&force=true` — 지정 날짜 식단 강제 재확인(기존 완료 캐시의 칼로리 보강 등에 사용, 인증 필요)
 - `POST /api/admin/cache-jobs` — 날짜 범위 순차 캐시 작업 시작(본문에 `forceExisting:true`를 넣으면 완료 캐시도 재확인, 인증 필요)

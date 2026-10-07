@@ -8,6 +8,7 @@ export default function MealCard({
   ratingBusy,
   onRate,
   onOpen,
+  onChat,
 }) {
   return (
     <article
@@ -86,6 +87,20 @@ export default function MealCard({
             rating={rating}
             disabled={ratingBusy}
             onRate={onRate}
+            action={(
+              <button
+                type="button"
+                onClick={onChat}
+                aria-label={`${meal.name} 채팅방 열기`}
+                title="식단 이야기하기"
+                className="grid size-6 shrink-0 place-items-center rounded-md text-apple-blue transition hover:bg-apple-blue/10 focus-visible:outline-2 focus-visible:outline-apple-blue"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-1 1v-9.5a8.5 8.5 0 0 1 17 0Z" />
+                  <path d="M8 11h8M8 15h5" />
+                </svg>
+              </button>
+            )}
           />
         </div>
       </div>
