@@ -1,65 +1,126 @@
-const particles = [
-  { x: '-7.5rem', y: '-3rem', fall: '2rem', gravity: '7.5rem', drift: '1.1rem', endDrift: '1.7rem', delay: '0ms', turn: '-560deg', color: '#0071e3', shape: 'ribbon' },
-  { x: '-6rem', y: '-1.5rem', fall: '2.5rem', gravity: '8.5rem', drift: '-0.8rem', endDrift: '-1.3rem', delay: '70ms', turn: '480deg', color: '#ff375f', shape: 'dot' },
-  { x: '-4.5rem', y: '-4.25rem', fall: '2rem', gravity: '7rem', drift: '1.4rem', endDrift: '2rem', delay: '140ms', turn: '620deg', color: '#ff9f0a', shape: 'ribbon' },
-  { x: '-3rem', y: '-2.5rem', fall: '3rem', gravity: '9rem', drift: '-0.6rem', endDrift: '-1rem', delay: '210ms', turn: '-520deg', color: '#30d158', shape: 'dot' },
-  { x: '-1.5rem', y: '-5rem', fall: '2rem', gravity: '7.5rem', drift: '0.9rem', endDrift: '1.4rem', delay: '280ms', turn: '560deg', color: '#bf5af2', shape: 'ribbon' },
-  { x: '1rem', y: '-4rem', fall: '2.5rem', gravity: '8rem', drift: '-1.1rem', endDrift: '-1.8rem', delay: '110ms', turn: '-680deg', color: '#0071e3', shape: 'dot' },
-  { x: '3rem', y: '-4.75rem', fall: '2rem', gravity: '7rem', drift: '1.2rem', endDrift: '1.8rem', delay: '180ms', turn: '500deg', color: '#ff375f', shape: 'ribbon' },
-  { x: '4.5rem', y: '-2.75rem', fall: '3rem', gravity: '9.5rem', drift: '-0.9rem', endDrift: '-1.5rem', delay: '250ms', turn: '-600deg', color: '#ff9f0a', shape: 'dot' },
-  { x: '6rem', y: '-4rem', fall: '2.25rem', gravity: '7.5rem', drift: '1.4rem', endDrift: '2.1rem', delay: '320ms', turn: '640deg', color: '#30d158', shape: 'ribbon' },
-  { x: '7.5rem', y: '-1.75rem', fall: '2.5rem', gravity: '8.5rem', drift: '-0.7rem', endDrift: '-1.2rem', delay: '390ms', turn: '-470deg', color: '#bf5af2', shape: 'dot' },
-  { x: '6.5rem', y: '1rem', fall: '3rem', gravity: '9rem', drift: '1rem', endDrift: '1.6rem', delay: '460ms', turn: '580deg', color: '#0071e3', shape: 'ribbon' },
-  { x: '4rem', y: '2rem', fall: '2rem', gravity: '7rem', drift: '-1.2rem', endDrift: '-2rem', delay: '530ms', turn: '-720deg', color: '#ff375f', shape: 'dot' },
-  { x: '1.5rem', y: '2.75rem', fall: '2.5rem', gravity: '8rem', drift: '0.8rem', endDrift: '1.3rem', delay: '600ms', turn: '520deg', color: '#ff9f0a', shape: 'ribbon' },
-  { x: '-1.5rem', y: '3.5rem', fall: '2rem', gravity: '7.5rem', drift: '-1rem', endDrift: '-1.6rem', delay: '670ms', turn: '-540deg', color: '#30d158', shape: 'dot' },
-  { x: '-4rem', y: '2.5rem', fall: '3rem', gravity: '9rem', drift: '1.2rem', endDrift: '1.9rem', delay: '740ms', turn: '680deg', color: '#bf5af2', shape: 'ribbon' },
-  { x: '-6.5rem', y: '1rem', fall: '2.25rem', gravity: '8rem', drift: '-0.8rem', endDrift: '-1.3rem', delay: '810ms', turn: '-480deg', color: '#0071e3', shape: 'dot' },
-]
-
-const sparkles = [
-  { x: '-5rem', y: '-4.75rem', delay: '80ms', size: 'large' },
-  { x: '5rem', y: '-4.25rem', delay: '220ms', size: 'small' },
-  { x: '6rem', y: '2.5rem', delay: '400ms', size: 'large' },
-  { x: '-6rem', y: '2.25rem', delay: '540ms', size: 'small' },
-]
+import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { advanceConfetti, createConfettiBurst } from '../../utils/confetti'
 
 export default function SpecialMealCelebration() {
-  return (
-    <span className="special-meal-particle-field" aria-hidden="true">
-      {particles.map((particle, index) => (
-        <span
-          key={`${particle.x}-${particle.y}-${index}`}
-          className={`special-meal-particle ${particle.shape === 'dot' ? 'special-meal-particle-dot' : 'special-meal-particle-ribbon'}`}
-          style={{
-            left: 0,
-            top: 0,
-            backgroundColor: particle.color,
-            '--special-meal-x': particle.x,
-            '--special-meal-y': particle.y,
-            '--special-meal-fall': particle.fall,
-            '--special-meal-gravity': particle.gravity,
-            '--special-meal-drift': particle.drift,
-            '--special-meal-end-drift': particle.endDrift,
-            '--special-meal-delay': particle.delay,
-            '--special-meal-turn': particle.turn,
-          }}
-        />
-      ))}
+  const anchor = useRef(null)
+  const canvas = useRef(null)
 
-      {sparkles.map((sparkle, index) => (
-        <span
-          key={`${sparkle.x}-${sparkle.y}-${index}`}
-          className={`special-meal-sparkle ${sparkle.size === 'large' ? 'special-meal-sparkle-large' : 'special-meal-sparkle-small'}`}
-          style={{
-            left: sparkle.x,
-            top: sparkle.y,
-            '--special-meal-delay': sparkle.delay,
-          }}
-        >
-          ✦
-        </span>
-      ))}
-    </span>
-  )
+  useEffect(() => {
+    const surface = canvas.current
+    const context = surface.getContext('2d')
+    if (!context) return
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let particles = []
+    let frame = 0
+    let previousTime = 0
+    let width = 0, height = 0
+    let promote = false
+    let blockedPointer = false
+
+    function resize() {
+      width = window.innerWidth
+      height = window.innerHeight
+      const scale = Math.min(window.devicePixelRatio || 1, 2)
+      surface.width = Math.round(width * scale)
+      surface.height = Math.round(height * scale)
+      context.setTransform(scale, 0, 0, scale, 0, 0)
+    }
+
+    function draw(time) {
+      frame = 0
+      // The celebration layer never intercepts page input.
+      if (promote && surface.showPopover) {
+        if (surface.matches(':popover-open')) surface.hidePopover()
+        surface.showPopover()
+      }
+      promote = false
+      const elapsed = previousTime ? Math.min((time - previousTime) / 1000, 0.035) : 1 / 60
+      previousTime = time
+      particles = advanceConfetti(particles, elapsed)
+      context.clearRect(0, 0, width, height)
+      // Particles use page coordinates; only the canvas is fixed to the viewport.
+      const scrollX = window.scrollX, scrollY = window.scrollY
+      for (const particle of particles) {
+        context.save()
+        context.globalAlpha = Math.min(1, Math.max(0, (particle.life - particle.age) / 0.7))
+        context.translate(particle.x - scrollX, particle.y - scrollY)
+        context.rotate(particle.rotation)
+        context.scale(1, Math.cos(particle.phase + particle.age * 8) * 0.8 + 0.2)
+        context.fillStyle = particle.color
+        if (particle.dot) {
+          context.beginPath()
+          context.arc(0, 0, particle.width / 2, 0, Math.PI * 2)
+          context.fill()
+        } else context.fillRect(-particle.width / 2, -particle.height / 2, particle.width, particle.height)
+        context.restore()
+      }
+      if (particles.length) frame = requestAnimationFrame(draw)
+      else {
+        previousTime = 0
+        if (surface.showPopover && surface.matches(':popover-open')) surface.hidePopover()
+      }
+    }
+
+    function launch(x, y) {
+      if (motion.matches) return
+      // New bursts join the live particles instead of resetting the animation.
+      particles.push(...createConfettiBurst(x, y))
+      promote = true
+      if (!frame) frame = requestAnimationFrame(draw)
+    }
+
+    function excluded(target) {
+      if (!(target instanceof Element)) return true
+      if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) return true
+      if (target.closest('dialog, [role="dialog"], [role="menu"], [role="listbox"]')) return true
+      if (target.closest('[data-confetti-trigger]')) return false
+      return Boolean(target.closest('button, a, input, textarea, select, label, summary, [contenteditable]:not([contenteditable="false"]), [tabindex]:not([tabindex="-1"]), [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="slider"], [role="tab"], [role="menuitem"], [data-no-confetti]'))
+    }
+
+    function pointerDown(event) {
+      // Remember backdrop/control gestures even if they remove a dialog before click fires.
+      blockedPointer = excluded(event.target)
+    }
+
+    function click(event) {
+      if ((event.detail > 0 && blockedPointer) || excluded(event.target)) return
+      if (event.detail > 0) launch(event.clientX + window.scrollX, event.clientY + window.scrollY)
+      else if (event.target instanceof Element) {
+        const box = event.target.getBoundingClientRect()
+        launch(box.left + box.width / 2 + window.scrollX, box.top + box.height / 2 + window.scrollY)
+      }
+    }
+
+    function motionChanged() {
+      if (!motion.matches) return
+      cancelAnimationFrame(frame)
+      frame = 0
+      previousTime = 0
+      particles = []
+      context.clearRect(0, 0, width, height)
+      if (surface.showPopover && surface.matches(':popover-open')) surface.hidePopover()
+    }
+
+    resize()
+    const box = anchor.current.getBoundingClientRect()
+    launch(box.left + window.scrollX, box.top + window.scrollY)
+    document.addEventListener('click', click, true)
+    document.addEventListener('pointerdown', pointerDown, true)
+    window.addEventListener('resize', resize)
+    motion.addEventListener('change', motionChanged)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('click', click, true)
+      document.removeEventListener('pointerdown', pointerDown, true)
+      window.removeEventListener('resize', resize)
+      motion.removeEventListener('change', motionChanged)
+      if (surface.showPopover && surface.matches(':popover-open')) surface.hidePopover()
+    }
+  }, [])
+
+  return <>
+    <span ref={anchor} aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 size-px" />
+    {createPortal(<canvas ref={canvas} popover="manual" aria-hidden="true" className="special-meal-confetti" />, document.body)}
+  </>
 }

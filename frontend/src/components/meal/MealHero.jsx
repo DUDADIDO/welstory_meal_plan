@@ -2,7 +2,7 @@ import { formatDate, formatShortDate } from '../../utils/date'
 import SpecialMealCelebration from './SpecialMealCelebration'
 import { isSpecialMealDay } from '../../utils/meal'
 
-export default function MealHero({ data, date, today }) {
+export default function MealHero({ data, date, today, celebrate = true }) {
   const isToday = date === today
   const isSpecial = isToday && isSpecialMealDay(data?.meals)
 
@@ -22,7 +22,11 @@ export default function MealHero({ data, date, today }) {
         {isToday
           ? isSpecial
             ? (
-              <>오늘 <span className="special-meal-word-wrap"><span className="special-meal-word">특식</span><SpecialMealCelebration /></span> 뭐 먹을까요?</>
+              <>오늘 <span className="special-meal-word-wrap"><button type="button" data-confetti-trigger
+                disabled={!celebrate}
+                aria-label="특식 축하 폭죽 터뜨리기" title="눌러서 특식 축하하기"
+                className="special-meal-word cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400">특식</button>
+                {celebrate && <SpecialMealCelebration />}</span> 뭐 먹을까요?</>
             )
             : '오늘, 뭐 먹을까요?'
           : `${formatShortDate(date)}의 식단`}

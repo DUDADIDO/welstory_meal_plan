@@ -137,40 +137,6 @@ html.theme-switching *::after {
   }
 }
 
-@keyframes special-meal-particle-burst {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.35) rotate(0deg);
-  }
-
-  8% {
-    opacity: 1;
-  }
-
-  36% {
-    opacity: 1;
-    transform: translate3d(var(--special-meal-x), var(--special-meal-y), 0) scale(1) rotate(var(--special-meal-turn));
-  }
-
-  68% {
-    opacity: 0.82;
-    transform: translate3d(
-      calc(var(--special-meal-x) + var(--special-meal-drift)),
-      calc(var(--special-meal-y) + var(--special-meal-fall)),
-      0
-    ) scale(0.92) rotate(var(--special-meal-turn));
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate3d(
-      calc(var(--special-meal-x) + var(--special-meal-end-drift)),
-      calc(var(--special-meal-y) + var(--special-meal-gravity)),
-      0
-    ) scale(0.65) rotate(var(--special-meal-turn));
-  }
-}
-
 .special-meal-heading {
   animation: special-meal-heading-in 850ms cubic-bezier(0.16, 0.9, 0.24, 1.15) both;
 }
@@ -192,57 +158,28 @@ html.theme-switching *::after {
   animation: special-meal-word-pulse 850ms cubic-bezier(0.16, 0.9, 0.24, 1.15) both;
 }
 
-.special-meal-particle-field {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 1px;
-  height: 1px;
+.special-meal-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   pointer-events: none;
-  overflow: visible;
 }
 
-.special-meal-particle {
-  position: absolute;
-  margin-left: -0.3rem;
-  margin-top: -0.3rem;
-  animation: special-meal-particle-burst 3.6s var(--special-meal-delay) cubic-bezier(0.2, 0.75, 0.25, 1) both;
-  opacity: 0;
-  will-change: transform, opacity;
-}
-
-.special-meal-particle-ribbon {
-  height: 1.05rem;
-  width: 0.52rem;
-  border-radius: 0.15rem;
-}
-
-.special-meal-particle-dot {
-  height: 0.65rem;
-  width: 0.65rem;
-  border-radius: 9999px;
-}
-
-.special-meal-sparkle {
-  position: absolute;
-  color: #ff9f0a;
-  line-height: 1;
-  opacity: 0;
-  animation: special-meal-word-pulse 900ms cubic-bezier(0.2, 1.4, 0.4, 1) var(--special-meal-delay) both;
-}
-
-.special-meal-sparkle-large {
-  font-size: 2rem;
-}
-
-.special-meal-sparkle-small {
-  font-size: 1.25rem;
+.special-meal-confetti::backdrop {
+  background: transparent;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .special-meal-heading,
-  .special-meal-word,
-  .special-meal-sparkle {
+  .special-meal-word {
     animation: none;
   }
 
@@ -251,8 +188,7 @@ html.theme-switching *::after {
     transform: none;
   }
 
-  .special-meal-particle,
-  .special-meal-sparkle {
+  .special-meal-confetti {
     display: none;
   }
 }
