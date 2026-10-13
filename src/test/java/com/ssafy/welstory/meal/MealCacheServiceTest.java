@@ -29,7 +29,8 @@ class MealCacheServiceTest {
             @Override
             public List<MealModels.UpstreamMeal> fetchLunch(LocalDate requestedDate) {
                 fetches.incrementAndGet();
-                return List.of(new MealModels.UpstreamMeal("한식", "돼지불백", "밥 · 국 · 반찬", "https://image.test/menu.jpg"));
+                return List.of(new MealModels.UpstreamMeal("한식", "돼지불백", "밥 · 국 · 반찬", "https://image.test/menu.jpg", "1,250 kcal",
+                        new MealModels.Nutrition("420", "1,250", "48", "80", "2,536")));
             }
 
             @Override
@@ -48,6 +49,8 @@ class MealCacheServiceTest {
 
         assertThat(first.status()).isEqualTo(MealModels.Status.READY);
         assertThat(second.status()).isEqualTo(MealModels.Status.READY);
+        assertThat(first.meals().getFirst().nutrition()).isEqualTo(new MealModels.Nutrition("420", "1,250", "48", "80", "2,536"));
+        assertThat(second.meals().getFirst().nutrition()).isEqualTo(first.meals().getFirst().nutrition());
         assertThat(fetches).hasValue(1);
         assertThat(second.meals().getFirst().imageUrl()).startsWith("/api/meals/2026-08-26/images/meal-01?v=");
         assertThat(service.image(date, "meal-01")).isPresent();
@@ -81,6 +84,42 @@ class MealCacheServiceTest {
         assertThat(first.status()).isEqualTo(MealModels.Status.WAITING);
         assertThat(second.status()).isEqualTo(MealModels.Status.WAITING);
         assertThat(fetches).hasValue(1);
+    }
+
+    @Test
+    void nutritionRefreshEnrichesExistingMenusWithoutAddingTakeoutOrChangingImages() {
+        LocalDate date = LocalDate.of(2026, 8, 26);
+        var nutrition = new MealModels.Nutrition("449", "1,473", "48", "80", "2,536");
+        var fetches = new AtomicInteger();
+        var downloads = new AtomicInteger();
+        WelstoryGateway gateway = new WelstoryGateway() {
+            public List<MealModels.UpstreamMeal> fetchLunch(LocalDate ignored) {
+                if (fetches.incrementAndGet() == 1) return List.of(new MealModels.UpstreamMeal("한식", "특식 메뉴", "반찬", "https://image.test/old.jpg", "1,473 kcal"));
+                return List.of(new MealModels.UpstreamMeal("한식", "특식 메뉴", "바뀐 반찬", "https://image.test/new.jpg", "1,473 kcal", nutrition),
+                        new MealModels.UpstreamMeal("포장", "추가 포장 메뉴", null, ""));
+            }
+            public MealModels.DownloadedImage downloadImage(String ignored) {
+                downloads.incrementAndGet();
+                return new MealModels.DownloadedImage(imageBytes(false), "image/png");
+            }
+        };
+        var properties = new WelstoryProperties(null, "user", "password", null, null, null,
+                tempDir, Duration.ofMinutes(5), Duration.ofMinutes(30));
+        var mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        var clock = Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        var service = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+        var before = service.get(date);
+        service.refreshNutrition(date);
+        var after = service.get(date);
+        assertThat(after.status()).isEqualTo(MealModels.Status.READY);
+        assertThat(after.meals()).hasSize(1);
+        assertThat(after.meals().getFirst().nutrition()).isEqualTo(nutrition);
+        assertThat(after.meals().getFirst().imageUrl()).isEqualTo(before.meals().getFirst().imageUrl());
+        assertThat(after.meals().getFirst().description()).isEqualTo("반찬");
+        assertThat(downloads).hasValue(1);
+        var restarted = new MealCacheService(gateway, properties, mapper, new ImagePlaceholderDetector(), clock);
+        assertThat(restarted.get(date).meals().getFirst().nutrition()).isEqualTo(nutrition);
+        assertThat(fetches).hasValue(2);
     }
 
     @Test

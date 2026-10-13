@@ -7,6 +7,7 @@ import MealCard from '../components/meal/MealCard'
 import MealHero from '../components/meal/MealHero'
 import MealLightbox from '../components/meal/MealLightbox'
 import MealChat from '../components/meal/MealChat'
+import MealNutrition from '../components/meal/MealNutrition'
 import FloatingMealVote from '../components/meal/FloatingMealVote'
 import { useMeals } from '../hooks/useMeals'
 import { useRatings } from '../hooks/useRatings'
@@ -21,12 +22,15 @@ export default function MainPage() {
   const [date, setDate] = useState(today)
   const [openMeal, setOpenMeal] = useState(null)
   const [chatRoom, setChatRoom] = useState(null)
+  const [nutritionMeal, setNutritionMeal] = useState(null)
   const { status, data, error, reload } = useMeals(date)
   const { ratings, rate, submitting } = useRatings(date)
   const hasMeals = data?.meals?.length > 0
   const references = useReferencePhotos(date, data?.date === date ? data?.meals : [])
   const closeLightbox = useCallback(() => setOpenMeal(null), [])
   const closeChat = useCallback(() => setChatRoom(null), [])
+
+  const closeNutrition = useCallback(() => setNutritionMeal(null), [])
 
   return (
     <>
@@ -53,6 +57,7 @@ export default function MainPage() {
               {data.meals.map((meal, index) => (
                 <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={submitting === meal.id}
                   onRate={(stars) => rate(meal.id, stars)} referencePhoto={references[meal.id]}
+                  onNutrition={() => setNutritionMeal(meal)}
                   onOpen={() => setOpenMeal({ ...meal, imageUrl: meal.imageUrl || references[meal.id]?.imageUrl,
                     photoDate: meal.imageUrl ? null : references[meal.id]?.date, isReference: !meal.imageUrl })}
                   onChat={() => setChatRoom({ date, meal })} />
@@ -63,9 +68,10 @@ export default function MainPage() {
         {!hasMeals && status !== 'loading' && <EmptyState data={data} error={error} onRetry={reload} />}
       </main>
       <SiteFooter data={data} />
-      {!openMeal && !chatRoom && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
+      {!openMeal && !chatRoom && !nutritionMeal && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
         canVote={date === today && data?.date === date && Boolean(hasMeals)} />}
       <MealLightbox meal={openMeal} onClose={closeLightbox} />
+      {nutritionMeal && <MealNutrition meal={nutritionMeal} onClose={closeNutrition} />}
       {chatRoom && <MealChat key={`${chatRoom.date}:${chatRoom.meal.id}`} date={chatRoom.date} meal={chatRoom.meal} onClose={closeChat} />}
     </>
   )

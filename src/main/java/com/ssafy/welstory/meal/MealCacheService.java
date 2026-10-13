@@ -455,10 +455,19 @@ public class MealCacheService {
     /*
      * 실제 웰스토리 API 호출 및 캐시 처리.
      */
+    public RefreshResult refreshNutrition(LocalDate date) {
+        return refresh(date, false, true, true);
+    }
+
+    private RefreshResult refresh(LocalDate date, boolean downloadImages, boolean force) {
+        return refresh(date, downloadImages, force, false);
+    }
+
     private RefreshResult refresh(
             LocalDate date,
             boolean downloadImages,
-            boolean force
+            boolean force,
+            boolean nutritionOnly
     ) {
 
         ReentrantLock lock =
@@ -529,8 +538,9 @@ public class MealCacheService {
                 List<MealModels.UpstreamMeal> upstream =
                         gateway.fetchLunch(date);
 
-                MealModels.CachedMealDay updated =
-                        cacheMeals(
+                MealModels.CachedMealDay updated = nutritionOnly && existing != null
+                        ? enrichNutrition(existing, upstream)
+                        : cacheMeals(
                                 date,
                                 upstream,
                                 existing,
@@ -665,6 +675,23 @@ public class MealCacheService {
                                 !day.meals().isEmpty()
                 )
                 .orElse(false);
+    }
+
+    private MealModels.CachedMealDay enrichNutrition(MealModels.CachedMealDay existing,
+                                                    List<MealModels.UpstreamMeal> upstream) {
+        var meals = existing.meals().stream().map(meal -> {
+            var fresh = upstream.stream().filter(candidate ->
+                    java.util.Objects.equals(candidate.courseName(), meal.courseName())
+                            && java.util.Objects.equals(candidate.name(), meal.name())).findFirst();
+            if (fresh.isEmpty()) return meal;
+            var value = fresh.get();
+            return new MealModels.CachedMeal(meal.id(), meal.courseName(), meal.name(), meal.description(),
+                    meal.originalImageUrl(), meal.imageFile(), meal.imageContentType(), meal.imageHash(), meal.placeholder(),
+                    value.calorie() == null ? meal.calorie() : value.calorie(),
+                    value.nutrition() == null ? meal.nutrition() : value.nutrition());
+        }).toList();
+        return new MealModels.CachedMealDay(existing.date(), existing.restaurantName(), existing.complete(),
+                meals, existing.message(), Instant.now(clock));
     }
 
     private MealModels.CachedMealDay cacheMeals(
@@ -831,7 +858,8 @@ public class MealCacheService {
                             contentType,
                             imageHash,
                             placeholder,
-                            meal.calorie()
+                            meal.calorie(),
+                            meal.nutrition()
                     )
             );
         }
@@ -1002,7 +1030,8 @@ public class MealCacheService {
                                         meal.imageContentType(),
                                         result.hash(),
                                         result.placeholder(),
-                                        meal.calorie()
+                                        meal.calorie(),
+                                        meal.nutrition()
                                 );
 
                             } catch (IOException ignored) {
@@ -1017,7 +1046,8 @@ public class MealCacheService {
                                         null,
                                         null,
                                         false,
-                                        meal.calorie()
+                                        meal.calorie(),
+                                        meal.nutrition()
                                 );
                             }
                         })
@@ -1348,7 +1378,8 @@ public class MealCacheService {
                             meal.imageContentType(),
                             meal.imageHash(),
                             true,
-                            meal.calorie()
+                            meal.calorie(),
+                            meal.nutrition()
                     );
                 })
                 .toList();

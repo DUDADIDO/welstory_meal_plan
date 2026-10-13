@@ -16,7 +16,7 @@ public final class MealResponseMapper {
                         meal.hasCachedImage()
                                 ? "/api/meals/%s/images/%s?v=%s".formatted(cached.date(), meal.id(), meal.imageHash())
                                 : null,
-                        meal.calorie()))
+                        meal.calorie(), meal.nutrition()))
                 .toList();
         return new MealModels.MealDayResponse(cached.date(), cached.restaurantName(), status, meals,
                 cached.message(), cached.lastUpdatedAt(), nextCheckAt);

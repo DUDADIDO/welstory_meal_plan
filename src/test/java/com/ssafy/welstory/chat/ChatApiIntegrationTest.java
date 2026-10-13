@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.welstory.meal.MealCacheService;
 import com.ssafy.welstory.meal.MealRefreshScheduler;
+import com.ssafy.welstory.meal.MealModels;
+import com.ssafy.welstory.meal.MealResponseMapper;
+import com.ssafy.welstory.meal.persistence.MealCacheStore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +48,7 @@ class ChatApiIntegrationTest {
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
+    @Autowired MealCacheStore mealStore;
     @MockitoBean MealCacheService meals;
     @MockitoBean MealRefreshScheduler scheduler;
 
@@ -220,6 +224,23 @@ class ChatApiIntegrationTest {
     }
 
     private LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Seoul")); }
+
+    @Test
+    void nutritionSurvivesDatabaseJsonAndResponseMappingWhileLegacyCacheStillLoads() throws Exception {
+        var meal = menu("meal-01", "영양 정보 테스트", null, false);
+        meal.put("nutrition", Map.of("kcal", "449", "sumKcal", "1,473", "sumProtein", "48", "sumFat", "0", "sumNa", "2,536"));
+        day(today(), List.of(meal, menu("meal-02", "과거 형식", null, false)));
+        var cached = mealStore.find(today()).orElseThrow();
+        var expected = new MealModels.Nutrition("449", "1,473", "48", "0", "2,536");
+        assertThat(cached.meals().getFirst().nutrition()).isEqualTo(expected);
+        assertThat(cached.meals().get(1).nutrition()).isNull();
+        mealStore.save(cached);
+        var restored = mealStore.find(today()).orElseThrow();
+        var response = MealResponseMapper.toResponse(restored, MealModels.Status.READY, null);
+        assertThat(response.meals().getFirst().nutrition()).isEqualTo(expected);
+        assertThat(response.meals().get(1).nutrition()).isNull();
+        assertThat(mapper.readTree(mapper.writeValueAsString(response)).at("/meals/0/nutrition/sumFat").asText()).isEqualTo("0");
+    }
 
     private ResponseEntity<JsonNode> vote(String cookie, LocalDate date, String mealId, boolean customHeader) {
         var headers = new HttpHeaders();

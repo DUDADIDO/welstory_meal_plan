@@ -66,6 +66,12 @@ public class AdminController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(snapshot());
     }
 
+    @PostMapping("/nutrition")
+    public ResponseEntity<MealCacheService.RefreshResult> refreshNutrition(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(cache.refreshNutrition(date));
+    }
+
     @PostMapping("/cache-jobs")
     public ResponseEntity<CacheRangeJobService.JobProgress> startCacheJob(@RequestBody CacheRangeRequest request) {
         try {

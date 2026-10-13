@@ -13,14 +13,20 @@ public final class MealModels {
         READY, WAITING, UNAVAILABLE, ERROR
     }
 
+    public record Nutrition(String kcal, String sumKcal, String sumProtein, String sumFat, String sumNa) {}
+
     public record MealItem(
             String id,
             String courseName,
             String name,
             String description,
             String imageUrl,
-            String calorie
+            String calorie,
+            Nutrition nutrition
     ) {
+        public MealItem(String id, String courseName, String name, String description, String imageUrl, String calorie) {
+            this(id, courseName, name, description, imageUrl, calorie, null);
+        }
         public MealItem(String id, String courseName, String name, String description, String imageUrl) {
             this(id, courseName, name, description, imageUrl, null);
         }
@@ -41,8 +47,12 @@ public final class MealModels {
             String name,
             String description,
             String photoUrl,
-            String calorie
+            String calorie,
+            Nutrition nutrition
     ) {
+        public UpstreamMeal(String courseName, String name, String description, String photoUrl, String calorie) {
+            this(courseName, name, description, photoUrl, calorie, null);
+        }
         public UpstreamMeal(String courseName, String name, String description, String photoUrl) {
             this(courseName, name, description, photoUrl, null);
         }
@@ -58,8 +68,13 @@ public final class MealModels {
             String imageContentType,
             String imageHash,
             boolean placeholder,
-            String calorie
+            String calorie,
+            Nutrition nutrition
     ) {
+        public CachedMeal(String id, String courseName, String name, String description, String originalImageUrl,
+                          String imageFile, String imageContentType, String imageHash, boolean placeholder, String calorie) {
+            this(id, courseName, name, description, originalImageUrl, imageFile, imageContentType, imageHash, placeholder, calorie, null);
+        }
         public CachedMeal(String id, String courseName, String name, String description, String originalImageUrl,
                           String imageFile, String imageContentType, String imageHash, boolean placeholder) {
             this(id, courseName, name, description, originalImageUrl, imageFile, imageContentType, imageHash, placeholder, null);

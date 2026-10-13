@@ -11,6 +11,7 @@ export default function MealCard({
   onOpen,
   onChat,
   referencePhoto,
+  onNutrition,
 }) {
   const imageUrl = meal.imageUrl || referencePhoto?.imageUrl
   const isReference = !meal.imageUrl && Boolean(referencePhoto?.imageUrl)
@@ -83,10 +84,12 @@ export default function MealCard({
           </p>
         )}
 
-        {meal.calorie && (
-          <p className="mt-3 inline-flex self-start items-center rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600">
-            총 칼로리 · {meal.calorie}
-          </p>
+        {(meal.calorie || meal.nutrition) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 self-start">
+            {meal.calorie && <p className="inline-flex items-center rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600">총 칼로리 · {meal.calorie}</p>}
+            <button type="button" onClick={onNutrition} aria-label={`${meal.name} 영양 정보 상세 보기`}
+              className="rounded-full px-2 py-1 text-xs font-medium text-muted transition hover:bg-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-apple-blue">상세 <span aria-hidden="true">›</span></button>
+          </div>
         )}
 
         <div className="mt-auto pt-5">

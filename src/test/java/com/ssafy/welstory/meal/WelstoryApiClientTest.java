@@ -54,7 +54,10 @@ class WelstoryApiClientTest {
                                   "photoUrl":"",
                                   "photoCd":"",
                                   "kcal":"420",
-                                  "sumKcal":"1,250"
+                                  "sumKcal":"1,250",
+                                  "sumProtein":"48",
+                                  "sumFat":"80",
+                                  "sumNa":"2,536"
                                 }]}}
                                 """));
 
@@ -62,6 +65,7 @@ class WelstoryApiClientTest {
 
         assertThat(meals).hasSize(1);
         assertThat(meals.getFirst().calorie()).isEqualTo("1,250 kcal");
+        assertThat(meals.getFirst().nutrition()).isEqualTo(new MealModels.Nutrition("420", "1,250", "48", "80", "2,536"));
         server.verify();
     }
 
@@ -104,6 +108,7 @@ class WelstoryApiClientTest {
 
         assertThat(meals).hasSize(1);
         assertThat(meals.getFirst().name()).isEqualTo("메뉴");
+        assertThat(meals.getFirst().nutrition()).isNull();
         server.verify();
     }
 }

@@ -123,7 +123,8 @@ public class WelstoryApiClient implements WelstoryGateway {
                     name,
                     nullableText(meal, "subMenuTxt"),
                     text(meal, "photoUrl") + text(meal, "photoCd"),
-                    calorie(meal)
+                    calorie(meal),
+                    nutrition(meal)
             ));
             if (meals.size() == 6) {
                 break;
@@ -240,6 +241,13 @@ public class WelstoryApiClient implements WelstoryGateway {
     private static String nullableText(JsonNode node, String field) {
         String value = text(node, field);
         return value.isBlank() ? null : value;
+    }
+
+    private static MealModels.Nutrition nutrition(JsonNode meal) {
+        var value = new MealModels.Nutrition(nullableText(meal, "kcal"), nullableText(meal, "sumKcal"),
+                nullableText(meal, "sumProtein"), nullableText(meal, "sumFat"), nullableText(meal, "sumNa"));
+        return value.kcal() == null && value.sumKcal() == null && value.sumProtein() == null
+                && value.sumFat() == null && value.sumNa() == null ? null : value;
     }
 
     private static String calorie(JsonNode meal) {
