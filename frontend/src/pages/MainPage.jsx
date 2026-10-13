@@ -18,9 +18,10 @@ import StatusBadge from '../components/meal/StatusBadge'
 import { useVisitorTracking } from '../hooks/useVisitorTracking'
 import { useWeather } from '../hooks/useWeather'
 
-export default function MainPage() {
-  useVisitorTracking()
-  const weather = useWeather()
+export default function MainPage({ previewMode = false, weatherOverride = null }) {
+  useVisitorTracking(!previewMode)
+  const actualWeather = useWeather(!weatherOverride)
+  const weather = weatherOverride || actualWeather
   const today = useMemo(todayInSeoul, [])
   const [date, setDate] = useState(today)
   const [openMeal, setOpenMeal] = useState(null)
@@ -37,9 +38,10 @@ export default function MainPage() {
   return (
     <>
       <WeatherBackdrop weather={weather} />
-      <MealNavigation date={date} today={today} onChange={setDate} />
+      {previewMode ? <header className="bg-[#111] px-5 py-3 text-center text-xs font-semibold text-white">날씨 미리보기 · {weatherOverride ? '테스트 날씨' : '현재 실제 날씨'}</header>
+        : <MealNavigation date={date} today={today} onChange={setDate} />}
       <main>
-        <MealHero data={data} date={date} today={today} weather={weather} />
+        <MealHero data={data} date={date} today={today} weather={weather} celebrate={!previewMode} />
         {status === 'loading' && !hasMeals && <LoadingGrid />}
         {hasMeals && (
           <section aria-label={`${formatDate(date)} 식단`} className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
@@ -58,12 +60,12 @@ export default function MainPage() {
             {error && <p role="alert" className="mb-4 text-xs text-red-500">사진을 다시 확인하지 못했습니다. 잠시 후 자동으로 다시 확인합니다.</p>}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {data.meals.map((meal, index) => (
-                <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={submitting === meal.id}
+                <MealCard key={meal.id} meal={meal} index={index} rating={ratings[meal.id]} ratingBusy={previewMode || submitting === meal.id}
                   onRate={(stars) => rate(meal.id, stars)} referencePhoto={references[meal.id]}
                   onNutrition={() => setNutritionMeal(meal)}
                   onOpen={() => setOpenMeal({ ...meal, imageUrl: meal.imageUrl || references[meal.id]?.imageUrl,
                     photoDate: meal.imageUrl ? null : references[meal.id]?.date, isReference: !meal.imageUrl })}
-                  onChat={() => setChatRoom({ date, meal })} />
+                  onChat={previewMode ? null : () => setChatRoom({ date, meal })} />
               ))}
             </div>
           </section>
@@ -71,7 +73,7 @@ export default function MainPage() {
         {!hasMeals && status !== 'loading' && <EmptyState data={data} error={error} onRetry={reload} />}
       </main>
       <SiteFooter data={data} weather={weather} />
-      {!openMeal && !chatRoom && !nutritionMeal && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
+      {!previewMode && !openMeal && !chatRoom && !nutritionMeal && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
         canVote={date === today && data?.date === date && Boolean(hasMeals)} />}
       <MealLightbox meal={openMeal} onClose={closeLightbox} />
       {nutritionMeal && <MealNutrition meal={nutritionMeal} onClose={closeNutrition} />}

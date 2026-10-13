@@ -1,7 +1,10 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useSearchParams } from 'react-router-dom'
+import { isWeatherPreview } from '../utils/weatherPreview'
 import Brand from '../components/common/Brand'
 
 export default function AdminLayout() {
+  const [params] = useSearchParams()
+  if (isWeatherPreview(params.get('weatherPreview'))) return <Outlet />
   return (
     <div className="min-h-dvh bg-canvas text-ink antialiased">
       <header className="border-b border-white/10 bg-[#111] text-white">

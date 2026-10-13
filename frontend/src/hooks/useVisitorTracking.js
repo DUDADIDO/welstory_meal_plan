@@ -31,12 +31,13 @@ function getVisitorId() {
   }
 }
 
-export function useVisitorTracking() {
+export function useVisitorTracking(enabled = true) {
   useEffect(() => {
+    if (!enabled) return
     const visitorId = getVisitorId()
 
     visitorApi
       .record(visitorId)
       .catch(() => {})
-  }, [])
+  }, [enabled])
 }

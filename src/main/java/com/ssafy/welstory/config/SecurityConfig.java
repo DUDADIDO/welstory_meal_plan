@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin", "/api/admin/**").hasRole("ADMIN")
                         .anyRequest().permitAll())
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/api/ratings/**", "/api/admin/**", "/api/visitors/**", "/api/chat/**"))
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .httpBasic(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();

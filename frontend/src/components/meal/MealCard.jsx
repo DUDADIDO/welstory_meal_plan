@@ -102,6 +102,7 @@ export default function MealCard({
               <button
                 type="button"
                 onClick={onChat}
+                disabled={!onChat}
                 aria-label={`${meal.name} 채팅방 열기`}
                 title="식단 이야기하기"
                 className="grid size-6 shrink-0 place-items-center rounded-md text-apple-blue transition hover:bg-apple-blue/10 focus-visible:outline-2 focus-visible:outline-apple-blue"

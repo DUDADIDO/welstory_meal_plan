@@ -6,8 +6,20 @@ import PrimaryButton from '../components/common/PrimaryButton'
 import { useAdminStatus } from '../hooks/useAdminStatus'
 import { todayInSeoul } from '../utils/date'
 import { formatBytes } from '../utils/format'
+import { useSearchParams } from 'react-router-dom'
+import WeatherTester from '../components/admin/WeatherTester'
+import AdminWeatherPreview from '../components/admin/AdminWeatherPreview'
+import { isWeatherPreview } from '../utils/weatherPreview'
 
 export default function AdminPage() {
+  const [params] = useSearchParams()
+  const condition = params.get('weatherPreview')
+  return isWeatherPreview(condition)
+    ? <AdminWeatherPreview condition={condition} date={params.get('previewDate')} time={params.get('previewTime')} night={params.get('night') === '1'} />
+    : <AdminDashboard />
+}
+
+function AdminDashboard() {
   const { data, error, refreshing, jobBusy, refreshToday, startCacheJob, cancelCacheJob } = useAdminStatus()
   const todayCache = data?.caches?.find((cache) => cache.date === todayInSeoul())
   const totalBytes = data ? data.caches.reduce((sum, cache) => sum + cache.diskBytes, data.ratings.diskBytes) : 0
@@ -24,6 +36,8 @@ export default function AdminPage() {
       </header>
 
       {error && <p className="mt-8 rounded-2xl bg-red-500/10 px-5 py-4 text-sm font-medium text-red-600 ring-1 ring-red-500/20">{error.message}</p>}
+
+      <WeatherTester />
 
       {data && (
         <>
