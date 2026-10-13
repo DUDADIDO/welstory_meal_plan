@@ -6,7 +6,7 @@ const messageTime = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
 })
 
-export default function MealChat({ date, meal, onClose }) {
+export default function MealChat({ date, meal, onClose, embedded = false }) {
   const chat = useMealChat(date, meal.id)
   const [draft, setDraft] = useState('')
   const panel = useRef(null)
@@ -17,6 +17,7 @@ export default function MealChat({ date, meal, onClose }) {
   const newest = chat.messages.at(-1)?.id
 
   useEffect(() => {
+    if (embedded) return undefined
     const previouslyFocused = document.activeElement
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -42,7 +43,7 @@ export default function MealChat({ date, meal, onClose }) {
       document.removeEventListener('keydown', keydown)
       previouslyFocused?.focus()
     }
-  }, [onClose])
+  }, [onClose, embedded])
 
   useLayoutEffect(() => {
     const area = scrollArea.current
@@ -77,18 +78,16 @@ export default function MealChat({ date, meal, onClose }) {
 
   const disabled = !chat.user || chat.loading || chat.sending || chat.waitSeconds > 0 || chat.remainingToday === 0 || !draft.trim()
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section ref={panel} role="dialog" aria-modal="true" aria-labelledby="meal-chat-title" tabIndex={-1}
-        className="flex h-[min(44rem,90dvh)] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl outline-none">
+  const content = (
+    <section ref={panel} role={embedded ? undefined : "dialog"} aria-modal={embedded ? undefined : "true"} aria-labelledby="meal-chat-title" tabIndex={-1}
+      className={embedded ? "flex h-full min-h-0 flex-col overflow-hidden bg-surface outline-none" : "flex h-[min(44rem,90dvh)] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl outline-none"}>
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-line/50 px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs text-muted">{formatDate(date)} · {meal.courseName || '오늘의 메뉴'}</p>
             <h2 id="meal-chat-title" className="mt-1 truncate text-lg font-bold">{meal.name} 채팅</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="채팅방 닫기"
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-soft text-2xl text-muted hover:text-ink">×</button>
+          {!embedded && <button type="button" onClick={onClose} aria-label="채팅방 닫기"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-soft text-2xl text-muted hover:text-ink">×</button>}
         </header>
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 bg-soft/60 px-5 py-3 text-xs">
@@ -142,6 +141,8 @@ export default function MealChat({ date, meal, onClose }) {
           </div>
         </form>
       </section>
-    </div>
   )
+
+  return embedded ? content : <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6"
+    onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>{content}</div>
 }

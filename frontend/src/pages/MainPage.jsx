@@ -75,7 +75,7 @@ export default function MainPage({ previewMode = false, weatherOverride = null }
       <SiteFooter data={data} weather={weather} />
       {!previewMode && !openMeal && !chatRoom && !nutritionMeal && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
         canVote={date === today && data?.date === date && Boolean(hasMeals)} />}
-      <MealLightbox meal={openMeal} onClose={closeLightbox} />
+      <MealLightbox meal={openMeal} date={date} onClose={closeLightbox} previewMode={previewMode} />
       {nutritionMeal && <MealNutrition meal={nutritionMeal} onClose={closeNutrition} />}
       {chatRoom && <MealChat key={`${chatRoom.date}:${chatRoom.meal.id}`} date={chatRoom.date} meal={chatRoom.meal} onClose={closeChat} />}
     </>
