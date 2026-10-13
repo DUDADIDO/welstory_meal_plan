@@ -1,7 +1,7 @@
 const statusStyle = {
   READY: 'text-emerald-600',
   WAITING: 'text-amber-600',
-  UNAVAILABLE: 'text-black/40',
+  UNAVAILABLE: 'text-muted',
   ERROR: 'text-red-600',
 }
 

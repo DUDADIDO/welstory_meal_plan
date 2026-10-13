@@ -1,13 +1,14 @@
 import MarkIcon from '../../assets/icons/MarkIcon'
 import KofiLink from './KofiLink'
+import WeatherAttribution from './WeatherAttribution'
 import { formatTime } from '../../utils/date'
 
-export default function SiteFooter({ data }) {
+export default function SiteFooter({ data, weather }) {
   const updated = formatTime(data?.lastUpdatedAt)
 
   return (
     <footer className="border-t border-[var(--theme-border)] bg-surface">
-      <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-5 py-10 text-xs leading-5 text-muted sm:gap-8 sm:px-8">
+      <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-5 pt-10 pb-24 text-xs leading-5 text-muted sm:gap-8 sm:px-8 sm:py-10">
         <div className="min-w-0">
         <div className="mb-3 flex items-center gap-2 text-ink">
           <MarkIcon className="size-5" />
@@ -22,6 +23,8 @@ export default function SiteFooter({ data }) {
             : '식단 업데이트를 기다리는 중입니다.'}
           {' · '}
           이미지와 메뉴 정보의 권리는 제공처에 있습니다.
+          {' · 날씨 '}
+          <WeatherAttribution weather={weather} />
         </p>
         </div>
         <div className="shrink-0"><KofiLink /></div>

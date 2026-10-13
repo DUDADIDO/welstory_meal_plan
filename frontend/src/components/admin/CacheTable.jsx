@@ -32,8 +32,8 @@ export default function CacheTable({ caches }) {
                 <span
                   className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                     cache.complete
-                      ? 'bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400'
-                      : 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20 dark:text-amber-400'
+                      ? 'bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20'
                   }`}
                 >
                   {cache.complete ? '캐시 완료' : '확인 필요'}

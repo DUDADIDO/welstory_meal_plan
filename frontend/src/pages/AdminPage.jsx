@@ -23,7 +23,7 @@ export default function AdminPage() {
         <PrimaryButton onClick={refreshToday} disabled={refreshing}>{refreshing ? '확인 중…' : '지금 확인'}</PrimaryButton>
       </header>
 
-      {error && <p className="mt-8 rounded-2xl bg-red-500/10 px-5 py-4 text-sm font-medium text-red-600 ring-1 ring-red-500/20 dark:text-red-400">{error.message}</p>}
+      {error && <p className="mt-8 rounded-2xl bg-red-500/10 px-5 py-4 text-sm font-medium text-red-600 ring-1 ring-red-500/20">{error.message}</p>}
 
       {data && (
         <>

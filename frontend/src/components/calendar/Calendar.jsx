@@ -51,7 +51,7 @@ export default function Calendar({ date, today, onSelect }) {
               aria-pressed={selected}
               aria-label={`${year}년 ${month}월 ${day}일${isToday ? ', 오늘' : ''}`}
               onClick={() => onSelect(isoDate)}
-              className={`mx-auto grid size-9 place-items-center rounded-full text-sm transition disabled:text-black/20 ${selected ? 'bg-apple-blue font-semibold text-white' : 'hover:bg-[var(--theme-hover)]'} ${isToday && !selected ? 'font-bold text-apple-blue' : ''}`}
+              className={`mx-auto grid size-9 place-items-center rounded-full text-sm transition disabled:opacity-25 ${selected ? 'bg-apple-blue font-semibold text-white' : 'hover:bg-[var(--theme-hover)]'} ${isToday && !selected ? 'font-bold text-apple-blue' : ''}`}
             >
               {day}
             </button>

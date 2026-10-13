@@ -1,8 +1,9 @@
 import { formatDate, formatShortDate } from '../../utils/date'
 import SpecialMealCelebration from './SpecialMealCelebration'
 import { isSpecialMealDay } from '../../utils/meal'
+import WeatherBadge from '../common/WeatherBadge'
 
-export default function MealHero({ data, date, today, celebrate = true }) {
+export default function MealHero({ data, date, today, weather, celebrate = true }) {
   const isToday = date === today
   const isSpecial = isToday && isSpecialMealDay(data?.meals)
 
@@ -35,6 +36,7 @@ export default function MealHero({ data, date, today, celebrate = true }) {
       <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-muted sm:text-base">
         {formatDate(date)} · {data?.restaurantName || '삼성전기 부산사업장'}
       </p>
+      <WeatherBadge weather={weather} />
     </header>
   )
 }

@@ -2,7 +2,6 @@ import Brand from '../common/Brand'
 import ChevronIcon from '../../assets/icons/ChevronIcon'
 import DatePicker from '../calendar/DatePicker'
 import { formatDate, moveDate } from '../../utils/date'
-import ThemeToggle from '../common/ThemeToggle'
 
 const arrowButton =
   'grid size-9 place-items-center rounded-full border border-[var(--theme-border)] bg-surface text-ink shadow-sm transition hover:bg-[var(--theme-hover)] disabled:opacity-25'
@@ -19,7 +18,6 @@ export default function MealNavigation({ date, today, onChange }) {
               SAMSUNG ELECTRO-MECHANICS · BUSAN
             </span>
 
-            <ThemeToggle inverse />
           </div>
         </div>
       </header>

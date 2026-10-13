@@ -9,15 +9,18 @@ import MealLightbox from '../components/meal/MealLightbox'
 import MealChat from '../components/meal/MealChat'
 import MealNutrition from '../components/meal/MealNutrition'
 import FloatingMealVote from '../components/meal/FloatingMealVote'
+import WeatherBackdrop from '../components/common/WeatherBackdrop'
 import { useMeals } from '../hooks/useMeals'
 import { useRatings } from '../hooks/useRatings'
 import { useReferencePhotos } from '../hooks/useReferencePhotos'
 import { formatDate, todayInSeoul } from '../utils/date'
 import StatusBadge from '../components/meal/StatusBadge'
 import { useVisitorTracking } from '../hooks/useVisitorTracking'
+import { useWeather } from '../hooks/useWeather'
 
 export default function MainPage() {
   useVisitorTracking()
+  const weather = useWeather()
   const today = useMemo(todayInSeoul, [])
   const [date, setDate] = useState(today)
   const [openMeal, setOpenMeal] = useState(null)
@@ -29,14 +32,14 @@ export default function MainPage() {
   const references = useReferencePhotos(date, data?.date === date ? data?.meals : [])
   const closeLightbox = useCallback(() => setOpenMeal(null), [])
   const closeChat = useCallback(() => setChatRoom(null), [])
-
   const closeNutrition = useCallback(() => setNutritionMeal(null), [])
 
   return (
     <>
+      <WeatherBackdrop weather={weather} />
       <MealNavigation date={date} today={today} onChange={setDate} />
       <main>
-        <MealHero data={data} date={date} today={today} />
+        <MealHero data={data} date={date} today={today} weather={weather} />
         {status === 'loading' && !hasMeals && <LoadingGrid />}
         {hasMeals && (
           <section aria-label={`${formatDate(date)} 식단`} className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
@@ -67,7 +70,7 @@ export default function MainPage() {
         )}
         {!hasMeals && status !== 'loading' && <EmptyState data={data} error={error} onRetry={reload} />}
       </main>
-      <SiteFooter data={data} />
+      <SiteFooter data={data} weather={weather} />
       {!openMeal && !chatRoom && !nutritionMeal && <FloatingMealVote key={date} date={date} meals={data?.meals || []}
         canVote={date === today && data?.date === date && Boolean(hasMeals)} />}
       <MealLightbox meal={openMeal} onClose={closeLightbox} />

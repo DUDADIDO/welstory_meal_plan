@@ -29,6 +29,11 @@ export const mealApi = {
   getByDate: (date, signal) => request(`/api/meals?date=${date}`, { signal, cache: 'no-store' }),
 }
 
+export const weatherApi = {
+  time: signal => request('/api/time', { signal, cache: 'no-store' }),
+  current: signal => request('/api/weather', { signal, cache: 'no-store' }),
+}
+
 export const menuHistoryApi = {
   references: (date, signal) => request(`/api/menu-history/references?date=${date}`, { signal, cache: 'no-store' }),
 }

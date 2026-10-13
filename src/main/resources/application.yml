@@ -54,6 +54,13 @@ admin:
   username: ${ADMIN_USERNAME:}
   password: ${ADMIN_PASSWORD:}
 
+weather:
+  latitude: ${WEATHER_LATITUDE:35.09}
+  longitude: ${WEATHER_LONGITUDE:128.87}
+  base-url: ${WEATHER_BASE_URL:https://api.open-meteo.com}
+  kma-service-key: ${KMA_SERVICE_KEY:}
+  kma-base-url: ${KMA_BASE_URL:https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}
+
 management:
   endpoints:
     web:

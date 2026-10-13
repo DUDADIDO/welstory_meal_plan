@@ -9,13 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.1.1",
     "@tailwindcss/vite": "^4.1.12",
-    "vite": "^7.2.4",
+    "@vitejs/plugin-react": "^5.1.1",
+    "korean-lunar-calendar": "^0.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.6.2",
-    "tailwindcss": "^4.1.12"
-  },
-  "devDependencies": {}
+    "suncalc": "^2.0.1",
+    "tailwindcss": "^4.1.12",
+    "vite": "^7.2.4"
+  }
 }

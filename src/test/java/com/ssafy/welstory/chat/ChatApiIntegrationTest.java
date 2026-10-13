@@ -7,6 +7,7 @@ import com.ssafy.welstory.meal.MealRefreshScheduler;
 import com.ssafy.welstory.meal.MealModels;
 import com.ssafy.welstory.meal.MealResponseMapper;
 import com.ssafy.welstory.meal.persistence.MealCacheStore;
+import com.ssafy.welstory.weather.WeatherService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,7 @@ class ChatApiIntegrationTest {
     @Autowired MealCacheStore mealStore;
     @MockitoBean MealCacheService meals;
     @MockitoBean MealRefreshScheduler scheduler;
+    @MockitoBean WeatherService weather;
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry properties) {
